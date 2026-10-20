@@ -12,7 +12,9 @@
     "db:migrate:bilingual": "tsx scripts/migrate-bilingual.ts",
     "db:migrate:briefs-date": "tsx scripts/migrate-briefs-date.ts",
     "db:backfill-i18n": "tsx scripts/backfill-i18n.ts",
-    "db:seed": "tsx scripts/seed.ts"
+    "db:seed": "tsx scripts/seed.ts",
+    "db:upsert-sources": "tsx scripts/upsert-sources.ts",
+    "qa:pipeline": "tsx scripts/qa-pipeline.ts"
   },
   "dependencies": {
     "@libsql/client": "^0.18.0",

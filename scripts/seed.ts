@@ -1,6 +1,7 @@
 import { createClient } from "@libsql/client";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
+import { CATALOG_SOURCES } from "../src/lib/sources/catalog";
 
 function id() {
   return randomUUID();
@@ -84,87 +85,6 @@ const THEATERS = [
     description_en: "Latin America, Caribbean, regional tensions.",
   },
 ] as const;
-
-/** Curated real public RSS feeds mapped to theaters. */
-const SOURCES: {
-  name: string;
-  url: string;
-  theater: string | null;
-  trust: number;
-}[] = [
-  {
-    name: "Kyiv Independent",
-    url: "https://kyivindependent.com/news-archive/rss/",
-    theater: "ukraine-russia",
-    trust: 1.2,
-  },
-  {
-    name: "BBC Europe",
-    url: "https://feeds.bbci.co.uk/news/world/europe/rss.xml",
-    theater: "ukraine-russia",
-    trust: 1.3,
-  },
-  {
-    name: "Al Jazeera",
-    url: "https://www.aljazeera.com/xml/rss/all.xml",
-    theater: "middle-east",
-    trust: 1.1,
-  },
-  {
-    name: "Guardian Middle East",
-    url: "https://www.theguardian.com/world/middleeast/rss",
-    theater: "middle-east",
-    trust: 1.2,
-  },
-  {
-    name: "BBC Africa",
-    url: "https://feeds.bbci.co.uk/news/world/africa/rss.xml",
-    theater: "africa",
-    trust: 1.2,
-  },
-  {
-    name: "Guardian World",
-    url: "https://www.theguardian.com/world/rss",
-    theater: null,
-    trust: 1.2,
-  },
-  {
-    name: "BBC Asia",
-    url: "https://feeds.bbci.co.uk/news/world/asia/rss.xml",
-    theater: "indo-pacific",
-    trust: 1.2,
-  },
-  {
-    name: "DW World",
-    url: "https://rss.dw.com/rdf/rss-en-world",
-    theater: "europe-hybrid",
-    trust: 1.1,
-  },
-  {
-    name: "Euronews",
-    url: "https://www.euronews.com/rss",
-    theater: "europe-hybrid",
-    trust: 1.0,
-  },
-  {
-    name: "BBC US & Canada",
-    url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml",
-    theater: "americas",
-    trust: 1.1,
-  },
-  {
-    name: "France 24 EN",
-    url: "https://www.france24.com/en/rss",
-    theater: null,
-    trust: 1.1,
-  },
-  {
-    name: "Defense News",
-    url: "https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml",
-    theater: null,
-    trust: 1.0,
-  },
-];
 
 const SAMPLE_INCIDENTS: {
   theater: string;
@@ -333,27 +253,28 @@ async function main() {
     theaterIds.set(t.slug, tid);
   }
 
-  for (const s of SOURCES) {
+  for (const s of CATALOG_SOURCES) {
     const existing = await db.execute({
       sql: `SELECT id FROM sources WHERE url = ?`,
       args: [s.url],
     });
-    const theaterId = s.theater ? theaterIds.get(s.theater)! : null;
+    const theaterId = s.theater ? (theaterIds.get(s.theater) ?? null) : null;
     if (existing.rows.length) {
       await db.execute({
-        sql: `UPDATE sources SET name=?, theater_id=?, enabled=1, trust_weight=? WHERE id=?`,
-        args: [s.name, theaterId, s.trust, existing.rows[0].id],
+        sql: `UPDATE sources SET name=?, type=?, theater_id=?, enabled=1, trust_weight=? WHERE id=?`,
+        args: [s.name, s.type, theaterId, s.trust, existing.rows[0].id],
       });
     } else {
       await db.execute({
         sql: `INSERT INTO sources (id, name, url, type, theater_id, enabled, trust_weight)
-              VALUES (?, ?, ?, 'rss', ?, 1, ?)`,
-        args: [id(), s.name, s.url, theaterId, s.trust],
+              VALUES (?, ?, ?, ?, ?, 1, ?)`,
+        args: [id(), s.name, s.url, s.type, theaterId, s.trust],
       });
     }
   }
 
-  // Demo seed incidents (approved + map_eligible) so map works without AI
+  // Demo seed incidents (approved + map_eligible) so map works without AI.
+  // Source stays disabled so ingest never pulls from it.
   const seedSourceId = id();
   const seedSourceUrl = "https://warnews.local/seed";
   const existingSeedSrc = await db.execute({
@@ -368,6 +289,11 @@ async function main() {
       sql: `INSERT INTO sources (id, name, url, type, theater_id, enabled, trust_weight)
             VALUES (?, 'War News Seed', ?, 'rss', NULL, 0, 1.0)`,
       args: [demoSourceId, seedSourceUrl],
+    });
+  } else {
+    await db.execute({
+      sql: `UPDATE sources SET enabled = 0 WHERE id = ?`,
+      args: [demoSourceId],
     });
   }
 
@@ -503,8 +429,13 @@ async function main() {
     });
   }
 
-  console.log(`Seeded OK → ${url}`);
-  console.log(`Theaters: ${THEATERS.length}, sources: ${SOURCES.length}, sample incidents: ${SAMPLE_INCIDENTS.length}`);
+  const host = url.startsWith("libsql://")
+    ? url.replace(/^libsql:\/\//, "").split("/")[0]
+    : "local-file";
+  console.log(`Seeded OK → ${host}`);
+  console.log(
+    `Theaters: ${THEATERS.length}, sources: ${CATALOG_SOURCES.length}, sample incidents: ${SAMPLE_INCIDENTS.length}`,
+  );
 }
 
 main().catch((err) => {

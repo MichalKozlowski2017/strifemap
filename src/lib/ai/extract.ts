@@ -2,8 +2,17 @@ import { getDb } from "@/lib/db/client";
 import { getOpenAI, hasOpenAI, modelName } from "@/lib/ai/client";
 import { incidentExtractSchema } from "@/lib/ai/schemas";
 import { computeMapEligible } from "@/lib/ai/quality";
+import {
+  distanceKm,
+  titleSimilarity,
+} from "@/lib/sources/normalize";
 import type { Confidence, IncidentType } from "@/lib/types";
 import { newId, nowIso } from "@/lib/utils/id";
+
+/** Title Jaccard threshold for merge within 48h. */
+const MERGE_TITLE_THRESHOLD = 0.55;
+/** Max distance (km) between coords to treat as same incident. */
+const MERGE_DISTANCE_KM = 50;
 
 const SYSTEM = `You extract structured conflict/security incidents from news items.
 Return a single JSON object. Do not invent facts.
@@ -214,40 +223,80 @@ export async function extractIncidents(limit = 15): Promise<{
         row.theater_id ||
         slugToId.get("europe-hybrid")!;
 
-      // Merge hint: same title-ish within 48h in same theater
-      const mergeKey = (data.merge_hint || data.title_en || data.title_pl)
-        .toLowerCase()
-        .slice(0, 80);
       const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
-      const existing = await db.execute({
+      const candidates = await db.execute({
         sql: `
-          SELECT id, confidence FROM incidents
-          WHERE theater_id = ?
-            AND occurred_at >= ?
-            AND lower(title) LIKE ?
-          LIMIT 1
+          SELECT id, title, title_en, title_pl, summary, confidence, lat, lng
+          FROM incidents
+          WHERE theater_id = ? AND occurred_at >= ?
+          ORDER BY occurred_at DESC
+          LIMIT 80
         `,
-        args: [theaterId, since, `%${mergeKey.slice(0, 40)}%`],
+        args: [theaterId, since],
       });
 
-      if (existing.rows.length > 0) {
-        const incidentId = String(existing.rows[0].id);
+      const newTitle = data.title_en || data.title_pl;
+      const hint = data.merge_hint?.trim().toLowerCase() ?? "";
+      let matchId: string | null = null;
+      let matchConfidence: Confidence | null = null;
+      let matchLat: number | null = null;
+      let matchLng: number | null = null;
+
+      for (const cand of candidates.rows) {
+        const candTitle = String(
+          cand.title_en ?? cand.title_pl ?? cand.title ?? "",
+        );
+        const candId = String(cand.id);
+        const sim = titleSimilarity(newTitle, candTitle);
+        const dist = distanceKm(
+          data.lat,
+          data.lng,
+          cand.lat as number | null,
+          cand.lng as number | null,
+        );
+
+        const hintHit =
+          hint.length >= 4 &&
+          (candTitle.toLowerCase().includes(hint) ||
+            String(cand.summary ?? "")
+              .toLowerCase()
+              .includes(hint) ||
+            String(cand.title ?? "")
+              .toLowerCase()
+              .includes(hint));
+
+        const titleHit = sim >= MERGE_TITLE_THRESHOLD;
+        const geoHit = dist != null && dist <= MERGE_DISTANCE_KM;
+
+        // Merge when: strong title match, OR merge_hint + (title OR geo), OR title + geo
+        const shouldMerge =
+          (titleHit && sim >= 0.72) ||
+          (hintHit && (titleHit || geoHit || sim >= 0.4)) ||
+          (titleHit && geoHit);
+
+        if (shouldMerge) {
+          matchId = candId;
+          matchConfidence = String(cand.confidence) as Confidence;
+          matchLat = cand.lat as number | null;
+          matchLng = cand.lng as number | null;
+          break;
+        }
+      }
+
+      if (matchId) {
         await db.execute({
           sql: `INSERT OR IGNORE INTO incident_sources (incident_id, raw_event_id) VALUES (?, ?)`,
-          args: [incidentId, row.id],
+          args: [matchId, row.id],
         });
         const srcCount = await db.execute({
           sql: `SELECT COUNT(*) AS c FROM incident_sources WHERE incident_id = ?`,
-          args: [incidentId],
+          args: [matchId],
         });
         const count = Number(srcCount.rows[0].c);
-        const confidence = String(existing.rows[0].confidence) as Confidence;
-        const inc = await db.execute({
-          sql: `SELECT lat, lng, status FROM incidents WHERE id = ?`,
-          args: [incidentId],
-        });
-        const lat = inc.rows[0].lat as number | null;
-        const lng = inc.rows[0].lng as number | null;
+        const confidence = matchConfidence!;
+        // Prefer filling missing coords from the new extract
+        const lat = matchLat ?? data.lat;
+        const lng = matchLng ?? data.lng;
         const eligible = computeMapEligible({
           confidence,
           lat,
@@ -257,8 +306,9 @@ export async function extractIncidents(limit = 15): Promise<{
           ? 1
           : 0;
         await db.execute({
-          sql: `UPDATE incidents SET map_eligible = ?, updated_at = ? WHERE id = ?`,
-          args: [eligible, nowIso(), incidentId],
+          sql: `UPDATE incidents SET lat = COALESCE(lat, ?), lng = COALESCE(lng, ?),
+            map_eligible = ?, updated_at = ? WHERE id = ?`,
+          args: [data.lat, data.lng, eligible, nowIso(), matchId],
         });
         await markRaw(row.id, "processed");
         merged += 1;
