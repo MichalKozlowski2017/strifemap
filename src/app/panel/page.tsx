@@ -40,12 +40,22 @@ export default async function PanelPage() {
           Cron: <code>/api/cron/ingest</code> · <code>/api/cron/extract</code> ·{" "}
           <code>/api/cron/sitrep</code> · <code>/api/cron/cleanup</code>
         </p>
-        <Link
-          href={`/?date=${date}`}
-          className="mt-4 inline-block text-xs uppercase tracking-widest text-[#c4a35a]"
-        >
-          {d.backToMap}
-        </Link>
+        <div className="mt-4 flex flex-wrap items-center gap-4">
+          <Link
+            href={`/?date=${date}`}
+            className="text-xs uppercase tracking-widest text-[#c4a35a]"
+          >
+            {d.backToMap}
+          </Link>
+          <form method="post" action="/api/panel/logout">
+            <button
+              type="submit"
+              className="text-xs uppercase tracking-widest text-stone-500 hover:text-stone-300"
+            >
+              {d.panelSignOut}
+            </button>
+          </form>
+        </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 pb-10 md:px-6">
         <PanelClient sources={sources} raw={raw} incidents={incidents} />

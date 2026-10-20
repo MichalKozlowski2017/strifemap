@@ -27,6 +27,7 @@ Copy `.env.example` → `.env.local`:
 | `OPENAI_MODEL` | No | Default `gpt-4o-mini` |
 | `OPENAI_BASE_URL` | No | e.g. `http://127.0.0.1:11434/v1` for Ollama |
 | `CRON_SECRET` | Prod | `Authorization: Bearer …` or `?secret=` |
+| `PANEL_PASSWORD` | Prod (panel) | Admin password for `/panel` (HttpOnly session cookie) |
 | `RAW_BODY_RETENTION_DAYS` | No | Default `5` (strip raw bodies after process) |
 
 ## Scripts
@@ -55,7 +56,7 @@ Copy `.env.example` → `.env.local`:
 - `/` — full-bleed MapLibre world map (last 72h published / map-eligible)
 - `/api/geojson` — cached GeoJSON (`Cache-Control` / s-maxage)
 - `/t/[slug]` — theater sitrep + list + focused map (Europe-hybrid callout)
-- `/panel` — toggle sources, raw queue, approve/reject incidents
+- `/panel` — toggle sources, raw queue, approve/reject (password-protected; login at `/panel/login`)
 
 ### Quality gate
 

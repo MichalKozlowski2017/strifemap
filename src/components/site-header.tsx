@@ -33,12 +33,6 @@ export function SiteHeader({
           </Link>
           <div className="flex items-center gap-4">
             <LangSwitch locale={locale} />
-            <Link
-              href="/panel"
-              className="text-[10px] uppercase tracking-widest text-stone-600 hover:text-stone-300"
-            >
-              {d.panel}
-            </Link>
           </div>
         </div>
 

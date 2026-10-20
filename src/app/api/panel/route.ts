@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isPanelAuthenticated } from "@/lib/auth/panel";
 import {
   setIncidentStatus,
   setSourceEnabled,
 } from "@/lib/db/queries";
 
-
 export const dynamic = "force-dynamic";
 
 export async function POST(request: NextRequest) {
+  if (!(await isPanelAuthenticated())) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const body = (await request.json()) as {
     action?: string;
     id?: string;
