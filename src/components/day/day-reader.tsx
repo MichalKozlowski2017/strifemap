@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IncidentDetailPanel } from "@/components/day/incident-detail-panel";
-import { NewsList } from "@/components/day/news-list";
+import { NewsTeaser } from "@/components/news/news-teaser";
 import { WarMap } from "@/components/map/war-map";
 import {
   confidenceLabel,
@@ -64,6 +64,7 @@ const LEGEND_COLORS: Record<IncidentType, string> = {
 
 export function DayReader({
   locale,
+  date,
   geojsonUrl,
   incidents,
   news = [],
@@ -206,7 +207,7 @@ export function DayReader({
           )}
         </div>
 
-        <NewsList locale={locale} items={news} />
+        <NewsTeaser locale={locale} date={date} items={news} />
       </div>
     </div>
   );

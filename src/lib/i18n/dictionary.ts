@@ -30,6 +30,7 @@ export const dict = {
       "Doniesienia konfliktowe bez pinezki — bez współrzędnych, analizy i komunikaty.",
     newsEmpty: "Brak wiadomości na ten dzień.",
     newsReadSource: "Czytaj źródło →",
+    newsOpenDay: "Wszystkie wiadomości dnia →",
     sitrep: "Sitrep",
     noSitrep: "Brak briefingu na ten dzień.",
     noSitrepNoIncidents: "Brak mapowanych incydentów — nie ma z czego zbudować sitrep.",
@@ -81,6 +82,7 @@ export const dict = {
       "Conflict reports without a map pin — no coordinates, analysis, and statements.",
     newsEmpty: "No news for this day.",
     newsReadSource: "Read source →",
+    newsOpenDay: "All news for this day →",
     sitrep: "Sitrep",
     noSitrep: "No briefing for this day.",
     noSitrepNoIncidents:

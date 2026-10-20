@@ -121,15 +121,17 @@ type PendingRow = {
   title: string;
   body: string | null;
   url: string;
+  image_url: string | null;
   theater_id: string | null;
   theater_slug: string | null;
   trust_weight: number;
 };
 
+/** Several sentences from stored body — no OpenAI. */
 function snippetSummary(title: string, body: string | null): string {
   const raw = (body ?? title).replace(/\s+/g, " ").trim();
   const parts = raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [raw];
-  return parts.slice(0, 2).join(" ").trim().slice(0, 420);
+  return parts.slice(0, 6).join(" ").trim().slice(0, 1_200);
 }
 
 export async function extractIncidents(limit?: number): Promise<{
@@ -168,7 +170,7 @@ export async function extractIncidents(limit?: number): Promise<{
   // Only never-classified rows (pending). Already processed/skipped/error stay put.
   const pending = await db.execute({
     sql: `
-      SELECT r.id, r.title, r.body, r.url, s.theater_id, s.trust_weight,
+      SELECT r.id, r.title, r.body, r.url, r.image_url, s.theater_id, s.trust_weight,
              t.slug AS theater_slug
       FROM raw_events r
       JOIN sources s ON s.id = r.source_id
@@ -395,8 +397,8 @@ export async function extractIncidents(limit?: number): Promise<{
               id, theater_id, type, title, summary,
               title_pl, title_en, summary_pl, summary_en,
               lat, lng, occurred_at,
-              confidence, status, map_eligible, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              confidence, status, map_eligible, image_url, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
               incidentId,
               theaterId,
@@ -413,6 +415,7 @@ export async function extractIncidents(limit?: number): Promise<{
               data.confidence,
               status,
               mapEligible ? 1 : 0,
+              row.image_url,
               nowIso(),
               nowIso(),
             ],
@@ -476,8 +479,8 @@ async function createNewsOnlyIncident(
           id, theater_id, type, title, summary,
           title_pl, title_en, summary_pl, summary_en,
           lat, lng, occurred_at,
-          confidence, status, map_eligible, created_at, updated_at
-        ) VALUES (?, ?, 'other', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'reported', 'pending', 0, ?, ?)`,
+          confidence, status, map_eligible, image_url, created_at, updated_at
+        ) VALUES (?, ?, 'other', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'reported', 'pending', 0, ?, ?, ?)`,
         args: [
           incidentId,
           theaterId,
@@ -488,6 +491,7 @@ async function createNewsOnlyIncident(
           summary,
           summary,
           nowIso(),
+          row.image_url,
           nowIso(),
           nowIso(),
         ],

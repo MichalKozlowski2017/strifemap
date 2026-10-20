@@ -52,6 +52,7 @@ export async function fetchGdeltItems(
         title: String(a.title).trim(),
         url: String(a.url).trim(),
         body,
+        imageUrl: null,
         publishedAt,
       };
     });

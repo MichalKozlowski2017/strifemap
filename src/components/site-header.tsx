@@ -11,13 +11,17 @@ export function SiteHeader({
   locale,
   date,
   activeTheater,
+  activeNav,
 }: {
   theaters: Theater[];
   locale: Locale;
   date: string;
   activeTheater?: string;
+  activeNav?: "map" | "news";
 }) {
   const d = t(locale);
+  const onMap = activeNav !== "news" && !activeTheater;
+  const onNews = activeNav === "news";
 
   return (
     <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0c1117]/95 backdrop-blur-md">
@@ -37,22 +41,28 @@ export function SiteHeader({
         </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] uppercase tracking-wider text-stone-400">
+          <nav className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[11px] uppercase tracking-wider text-stone-400">
             <Link
               href={`/?date=${date}`}
-              className={
-                !activeTheater
-                  ? "text-[#c4a35a]"
-                  : "hover:text-[#c4a35a]"
-              }
+              className={`inline-flex min-h-10 items-center ${
+                onMap ? "text-[#c4a35a]" : "hover:text-[#c4a35a]"
+              }`}
             >
               {locale === "pl" ? "Mapa" : "Map"}
+            </Link>
+            <Link
+              href={`/news?date=${date}`}
+              className={`inline-flex min-h-10 items-center ${
+                onNews ? "text-[#c4a35a]" : "hover:text-[#c4a35a]"
+              }`}
+            >
+              {d.news}
             </Link>
             {theaters.map((theater) => (
               <Link
                 key={theater.slug}
                 href={`/t/${theater.slug}?date=${date}`}
-                className={`hover:text-[#c4a35a] ${
+                className={`inline-flex min-h-10 items-center hover:text-[#c4a35a] ${
                   activeTheater === theater.slug
                     ? "text-[#c4a35a]"
                     : theater.slug === "europe-hybrid"

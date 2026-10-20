@@ -12,24 +12,40 @@ export type DayNewsCard = {
   title_en: string | null;
   summary_pl: string | null;
   summary_en: string | null;
+  /** Longer stored body for news page (several sentences). */
+  body: string | null;
+  image_url: string | null;
   source_name: string;
   source_url: string | null;
 };
 
-/** Trim body to roughly two sentences for the news list. */
-export function twoSentences(text: string, maxChars = 320): string {
-  const cleaned = text.replace(/\s+/g, " ").trim();
+/** Prefer several sentences from summary or body — no OpenAI. */
+export function newsCopy(
+  summary: string,
+  body: string | null,
+  maxSentences = 5,
+  maxChars = 900,
+): string {
+  const prefer =
+    summary.trim().length >= 160 ? summary : body?.trim() || summary;
+  const cleaned = prefer.replace(/\s+/g, " ").trim();
   if (!cleaned) return "";
   const parts = cleaned.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [cleaned];
-  const joined = parts.slice(0, 2).join(" ").trim();
+  const joined = parts.slice(0, maxSentences).join(" ").trim();
   if (joined.length <= maxChars) return joined;
   return `${joined.slice(0, maxChars - 1).trimEnd()}…`;
+}
+
+/** Short teaser blurb. */
+export function newsTeaserCopy(summary: string, body: string | null): string {
+  return newsCopy(summary, body, 2, 220);
 }
 
 function toCard(row: NewsItemRow): DayNewsCard | null {
   const title = row.title_en || row.title_pl || row.title || "";
   const summary = row.summary_en || row.summary_pl || row.summary || "";
-  const relevanceOk = isLikelyIncident(title, summary);
+  const body = row.body;
+  const relevanceOk = isLikelyIncident(title, summary || body);
   const confidence = (row.confidence || "reported") as Confidence;
 
   if (
@@ -56,6 +72,8 @@ function toCard(row: NewsItemRow): DayNewsCard | null {
     title_en: row.title_en,
     summary_pl: row.summary_pl,
     summary_en: row.summary_en,
+    body: body != null ? String(body) : null,
+    image_url: row.image_url != null ? String(row.image_url) : null,
     source_name: row.source_name?.trim() || "—",
     source_url: url,
   };
@@ -65,6 +83,6 @@ export async function getNewsForDay(options: {
   date: string;
   theaterSlug?: string;
 }): Promise<DayNewsCard[]> {
-  const rows = await listNewsForDate(options);
+  const rows = await listNewsForDate({ ...options, limit: 50 });
   return rows.map(toCard).filter((x): x is DayNewsCard => x != null);
 }

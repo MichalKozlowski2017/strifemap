@@ -53,6 +53,7 @@ export async function ingestAllSources(): Promise<{
     url: string;
     title: string;
     body: string;
+    image_url: string | null;
     content_hash: string;
     fetched_at: string;
   }[] = [];
@@ -103,6 +104,7 @@ export async function ingestAllSources(): Promise<{
         url: canonUrl,
         title: item.title,
         body: item.body,
+        image_url: item.imageUrl ?? null,
         content_hash: hash,
         fetched_at: nowIso(),
       });
@@ -114,14 +116,15 @@ export async function ingestAllSources(): Promise<{
     const slice = batch.slice(i, i + CHUNK);
     const statements = slice.map((row) => ({
       sql: `INSERT OR IGNORE INTO raw_events
-        (id, source_id, url, title, body, content_hash, fetched_at, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+        (id, source_id, url, title, body, image_url, content_hash, fetched_at, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       args: [
         row.id,
         row.source_id,
         row.url,
         row.title,
         row.body,
+        row.image_url,
         row.content_hash,
         row.fetched_at,
       ],

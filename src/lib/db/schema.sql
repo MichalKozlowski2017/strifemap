@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS raw_events (
   url TEXT NOT NULL,
   title TEXT NOT NULL,
   body TEXT,
+  image_url TEXT,
   content_hash TEXT NOT NULL UNIQUE,
   fetched_at TEXT NOT NULL,
   processed_at TEXT,
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS incidents (
   confidence TEXT NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending',
   map_eligible INTEGER NOT NULL DEFAULT 0,
+  image_url TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
