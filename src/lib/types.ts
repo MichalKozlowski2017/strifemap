@@ -59,6 +59,10 @@ export type Incident = {
   type: IncidentType;
   title: string;
   summary: string;
+  title_pl: string | null;
+  title_en: string | null;
+  summary_pl: string | null;
+  summary_en: string | null;
   lat: number | null;
   lng: number | null;
   occurred_at: string;
@@ -90,9 +94,14 @@ export type MapIncidentFeatureProps = {
   id: string;
   title: string;
   summary: string;
+  title_pl?: string | null;
+  title_en?: string | null;
+  summary_pl?: string | null;
+  summary_en?: string | null;
   type: IncidentType;
   confidence: Confidence;
   theater_slug: string;
   theater_name_pl: string;
+  theater_name_en?: string;
   occurred_at: string;
 };

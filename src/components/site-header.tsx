@@ -1,47 +1,79 @@
 import Link from "next/link";
+import { Suspense } from "react";
+import { DateStepper } from "@/components/date/date-stepper";
+import { LangSwitch } from "@/components/i18n/lang-switch";
+import { theaterName } from "@/lib/i18n/content";
+import { t, type Locale } from "@/lib/i18n/dictionary";
 import type { Theater } from "@/lib/types";
 
 export function SiteHeader({
   theaters,
-  compact = false,
+  locale,
+  date,
+  activeTheater,
 }: {
   theaters: Theater[];
-  compact?: boolean;
+  locale: Locale;
+  date: string;
+  activeTheater?: string;
 }) {
+  const d = t(locale);
+
   return (
-    <header
-      className={`absolute inset-x-0 top-0 z-20 ${
-        compact ? "bg-[#0c1117]/90 backdrop-blur-md" : "pointer-events-none"
-      }`}
-    >
-      <div className="mx-auto flex max-w-7xl items-start justify-between gap-4 px-4 py-4 md:px-6">
-        <Link
-          href="/"
-          className={`pointer-events-auto group ${compact ? "" : ""}`}
-        >
-          <p className="font-[family-name:var(--font-display)] text-3xl tracking-[0.08em] text-[#f3efe6] md:text-5xl">
-            WAR NEWS
-          </p>
-          <p className="mt-0.5 text-[11px] uppercase tracking-[0.28em] text-[#c4a35a]">
-            Conflict intelligence
-          </p>
-        </Link>
-        <nav className="pointer-events-auto flex max-w-[55%] flex-wrap justify-end gap-x-3 gap-y-1 text-[11px] uppercase tracking-wider text-stone-300 md:text-xs">
-          {theaters.map((t) => (
-            <Link
-              key={t.slug}
-              href={`/t/${t.slug}`}
-              className={`hover:text-[#c4a35a] ${
-                t.slug === "europe-hybrid" ? "text-amber-400" : ""
-              }`}
-            >
-              {t.name_pl}
-            </Link>
-          ))}
-          <Link href="/panel" className="text-stone-500 hover:text-stone-200">
-            Panel
+    <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0c1117]/95 backdrop-blur-md">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 md:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Link href={`/?date=${date}`} className="group min-w-0">
+            <p className="font-[family-name:var(--font-display)] text-2xl tracking-[0.08em] text-[#f3efe6] md:text-3xl">
+              WAR NEWS
+            </p>
+            <p className="text-[10px] uppercase tracking-[0.28em] text-[#c4a35a]">
+              {d.tagline}
+            </p>
           </Link>
-        </nav>
+          <div className="flex items-center gap-4">
+            <LangSwitch locale={locale} />
+            <Link
+              href="/panel"
+              className="text-[10px] uppercase tracking-widest text-stone-600 hover:text-stone-300"
+            >
+              {d.panel}
+            </Link>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <nav className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] uppercase tracking-wider text-stone-400">
+            <Link
+              href={`/?date=${date}`}
+              className={
+                !activeTheater
+                  ? "text-[#c4a35a]"
+                  : "hover:text-[#c4a35a]"
+              }
+            >
+              {locale === "pl" ? "Mapa" : "Map"}
+            </Link>
+            {theaters.map((theater) => (
+              <Link
+                key={theater.slug}
+                href={`/t/${theater.slug}?date=${date}`}
+                className={`hover:text-[#c4a35a] ${
+                  activeTheater === theater.slug
+                    ? "text-[#c4a35a]"
+                    : theater.slug === "europe-hybrid"
+                      ? "text-amber-500/90"
+                      : ""
+                }`}
+              >
+                {theaterName(theater, locale)}
+              </Link>
+            ))}
+          </nav>
+          <Suspense fallback={<div className="h-7 w-48" />}>
+            <DateStepper date={date} locale={locale} />
+          </Suspense>
+        </div>
       </div>
     </header>
   );

@@ -31,7 +31,8 @@ export async function generateDailySitreps(): Promise<{
   for (const t of theaters.rows) {
     const incidents = await db.execute({
       sql: `
-        SELECT title, summary, type, confidence, occurred_at, status
+        SELECT title, summary, title_pl, title_en, summary_pl, summary_en,
+               type, confidence, occurred_at, status
         FROM incidents
         WHERE theater_id = ?
           AND status IN ('approved', 'published')
@@ -56,13 +57,21 @@ export async function generateDailySitreps(): Promise<{
           role: "system",
           content: `You write concise daily sitreps for a conflict intelligence hub.
 Return JSON with headline_pl, headline_en, body_pl, body_en, key_points_pl[], key_points_en[].
-Analytical tone. Do not invent incidents not in the input. Polish and English.`,
+Always fill BOTH languages. Analytical tone. Do not invent incidents not in the input.`,
         },
         {
           role: "user",
           content: JSON.stringify({
             theater: { slug: t.slug, name_pl: t.name_pl, name_en: t.name_en },
-            incidents: incidents.rows,
+            incidents: incidents.rows.map((r) => ({
+              title_pl: r.title_pl ?? r.title,
+              title_en: r.title_en ?? r.title,
+              summary_pl: r.summary_pl ?? r.summary,
+              summary_en: r.summary_en ?? r.summary,
+              type: r.type,
+              confidence: r.confidence,
+              occurred_at: r.occurred_at,
+            })),
           }),
         },
       ],

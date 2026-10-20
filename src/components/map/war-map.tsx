@@ -1,50 +1,47 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Map, {
-  Layer,
-  NavigationControl,
-  Popup,
-  Source,
-} from "react-map-gl/maplibre";
+import Map, { Layer, NavigationControl, Source } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
 import * as maplibregl from "maplibre-gl";
 import type { FeatureCollection, Point } from "geojson";
+import type { Locale } from "@/lib/i18n/dictionary";
+import { t } from "@/lib/i18n/dictionary";
 import type { MapIncidentFeatureProps } from "@/lib/types";
 import "maplibre-gl/dist/maplibre-gl.css";
 
-// Turbopack often yields a non-http import.meta.url, so the default worker
-// path resolves empty — serve the bundled worker from /public instead.
 if (typeof window !== "undefined") {
   maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
 }
 
 type Props = {
   geojsonUrl: string;
+  locale: Locale;
+  selectedId?: string | null;
+  onSelect?: (id: string | null) => void;
   initialViewState?: {
     longitude: number;
     latitude: number;
     zoom: number;
   };
   className?: string;
-};
-
-type Selected = MapIncidentFeatureProps & {
-  lng: number;
-  lat: number;
-  sources?: { url: string; title: string; source_name: string }[];
+  emptyLabel?: string;
 };
 
 export function WarMap({
   geojsonUrl,
+  locale,
+  selectedId,
+  onSelect,
   initialViewState = { longitude: 25, latitude: 35, zoom: 2.2 },
   className,
+  emptyLabel,
 }: Props) {
+  const d = t(locale);
   const [data, setData] = useState<FeatureCollection<
     Point,
     MapIncidentFeatureProps
   > | null>(null);
-  const [selected, setSelected] = useState<Selected | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -52,43 +49,41 @@ export function WarMap({
     fetch(geojsonUrl)
       .then((r) => r.json())
       .then((json) => {
-        if (!cancelled) setData(json);
+        if (cancelled) return;
+        setError(null);
+        setData(json);
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
+        if (cancelled) return;
+        setError(String(e));
+        setData(null);
       });
     return () => {
       cancelled = true;
     };
   }, [geojsonUrl]);
 
-  const onClick = useCallback(async (e: MapLayerMouseEvent) => {
-    const feature = e.features?.[0];
-    if (!feature || feature.geometry?.type !== "Point") return;
-    if (feature.properties?.cluster) return;
-
-    const props = feature.properties as MapIncidentFeatureProps;
-    const coords = feature.geometry.coordinates as [number, number];
-    const [lng, lat] = coords;
-    setSelected({ ...props, lng, lat });
-
-    try {
-      const res = await fetch(`/api/incidents/${props.id}`);
-      if (res.ok) {
-        const body = await res.json();
-        setSelected((prev) =>
-          prev ? { ...prev, sources: body.sources ?? [] } : prev,
-        );
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
+  const onClick = useCallback(
+    (e: MapLayerMouseEvent) => {
+      const feature = e.features?.[0];
+      if (!feature || feature.geometry?.type !== "Point") return;
+      if (feature.properties?.cluster) return;
+      const id = String(
+        (feature.properties as MapIncidentFeatureProps).id ?? "",
+      );
+      if (!id) return;
+      onSelect?.(id);
+    },
+    [onSelect],
+  );
 
   const interactiveLayerIds = useMemo(
-    () => ["clusters", "unclustered-point"],
+    () => ["clusters", "unclustered-point", "selected-point"],
     [],
   );
+
+  const empty =
+    data && Array.isArray(data.features) && data.features.length === 0;
 
   return (
     <div className={className ?? "relative h-full w-full"}>
@@ -144,7 +139,15 @@ export function WarMap({
             <Layer
               id="unclustered-point"
               type="circle"
-              filter={["!", ["has", "point_count"]]}
+              filter={
+                selectedId
+                  ? [
+                      "all",
+                      ["!", ["has", "point_count"]],
+                      ["!=", ["get", "id"], selectedId],
+                    ]
+                  : ["!", ["has", "point_count"]]
+              }
               paint={{
                 "circle-color": [
                   "match",
@@ -168,61 +171,43 @@ export function WarMap({
                 "circle-stroke-color": "#f5f0e6",
               }}
             />
+            {selectedId ? (
+              <Layer
+                id="selected-point"
+                type="circle"
+                filter={[
+                  "all",
+                  ["!", ["has", "point_count"]],
+                  ["==", ["get", "id"], selectedId],
+                ]}
+                paint={{
+                  "circle-color": "#c4a35a",
+                  "circle-radius": 10,
+                  "circle-stroke-width": 2,
+                  "circle-stroke-color": "#f5f0e6",
+                }}
+              />
+            ) : null}
           </Source>
-        )}
-        {selected && (
-          <Popup
-            longitude={selected.lng}
-            latitude={selected.lat}
-            anchor="bottom"
-            onClose={() => setSelected(null)}
-            closeOnClick={false}
-            maxWidth="320px"
-          >
-            <article className="space-y-2 p-1 text-[#1a1a1a]">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-stone-500">
-                {selected.theater_name_pl} · {selected.type} ·{" "}
-                {selected.confidence}
-              </p>
-              <h3 className="text-lg font-semibold leading-tight">
-                {selected.title}
-              </h3>
-              <p className="text-sm leading-relaxed text-stone-700">
-                {selected.summary}
-              </p>
-              <p className="text-[11px] text-stone-500">
-                {new Date(selected.occurred_at).toLocaleString("pl-PL")}
-              </p>
-              {selected.sources && selected.sources.length > 0 && (
-                <ul className="space-y-1 border-t border-stone-200 pt-2 text-xs">
-                  {selected.sources.map((s) => (
-                    <li key={s.url}>
-                      <a
-                        href={s.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-amber-800 underline-offset-2 hover:underline"
-                      >
-                        {s.source_name}: {s.title}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-          </Popup>
         )}
       </Map>
       {error && (
-        <div className="absolute left-4 top-4 rounded bg-red-950/80 px-3 py-2 text-xs text-red-100">
-          Map data error: {error}
+        <div className="absolute left-4 top-4 bg-red-950/80 px-3 py-2 text-xs text-red-100">
+          {d.mapError}: {error}
         </div>
       )}
       {!data && !error && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="rounded bg-black/50 px-3 py-1 text-xs tracking-widest text-stone-300">
-            ŁADOWANIE MAPY…
+          <span className="bg-black/50 px-3 py-1 text-xs tracking-widest text-stone-300">
+            {d.loadingMap}
           </span>
+        </div>
+      )}
+      {empty && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-[#0c1117]/35">
+          <p className="max-w-sm px-4 text-center text-sm text-stone-300">
+            {emptyLabel ?? d.emptyDay}
+          </p>
         </div>
       )}
     </div>

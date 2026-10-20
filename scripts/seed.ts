@@ -412,15 +412,21 @@ async function main() {
 
     await db.execute({
       sql: `INSERT INTO incidents (
-        id, theater_id, type, title, summary, lat, lng, occurred_at,
+        id, theater_id, type, title, summary,
+        title_pl, title_en, summary_pl, summary_en,
+        lat, lng, occurred_at,
         confidence, status, map_eligible, created_at, updated_at
-      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+      ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       args: [
         incidentId,
         theaterId,
         sample.type,
         sample.title,
         sample.summary,
+        sample.title,
+        null,
+        sample.summary,
+        null,
         sample.lat,
         sample.lng,
         occurred,

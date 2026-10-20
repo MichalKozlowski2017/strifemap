@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Libre_Franklin, Oswald } from "next/font/google";
+import { getLocale } from "@/lib/i18n/locale";
 import "./globals.css";
 
 const display = Oswald({
@@ -20,13 +21,14 @@ export const metadata: Metadata = {
     "Global conflict intelligence hub: theaters, map incidents, AI sitreps.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
   return (
-    <html lang="pl" className={`${display.variable} ${body.variable} h-full`}>
+    <html lang={locale} className={`${display.variable} ${body.variable} h-full`}>
       <body className="min-h-full antialiased">{children}</body>
     </html>
   );

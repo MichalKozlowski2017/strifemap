@@ -1,35 +1,75 @@
 import { getDb } from "@/lib/db/client";
+import { dayBoundsISO, formatDateISO, todayISO } from "@/lib/dates";
 import type { MapIncidentFeatureProps } from "@/lib/types";
 import type { FeatureCollection, Point } from "geojson";
 
-const DEFAULT_HOURS = 72;
-
-export async function getMapGeoJSON(options?: {
-  hours?: number;
-  theaterSlug?: string;
-}): Promise<FeatureCollection<Point, MapIncidentFeatureProps>> {
-  const hours = options?.hours ?? DEFAULT_HOURS;
-  const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+export async function getLatestMapDate(theaterSlug?: string): Promise<string> {
   const db = getDb();
-
-  const args: (string | number)[] = [since];
+  const args: string[] = [];
   let theaterClause = "";
-  if (options?.theaterSlug) {
+  if (theaterSlug) {
     theaterClause = "AND t.slug = ?";
-    args.push(options.theaterSlug);
+    args.push(theaterSlug);
   }
 
   const result = await db.execute({
     sql: `
-      SELECT i.id, i.title, i.summary, i.type, i.confidence, i.lat, i.lng,
-             i.occurred_at, t.slug AS theater_slug, t.name_pl AS theater_name_pl
+      SELECT i.occurred_at
       FROM incidents i
       JOIN theaters t ON t.id = i.theater_id
       WHERE i.map_eligible = 1
         AND i.status IN ('approved', 'published')
         AND i.lat IS NOT NULL AND i.lng IS NOT NULL
-        AND i.occurred_at >= ?
         ${theaterClause}
+      ORDER BY i.occurred_at DESC
+      LIMIT 1
+    `,
+    args,
+  });
+
+  if (!result.rows.length) return todayISO();
+  return formatDateISO(new Date(String(result.rows[0].occurred_at)));
+}
+
+export async function getMapGeoJSON(options?: {
+  date?: string;
+  hours?: number;
+  theaterSlug?: string;
+}): Promise<FeatureCollection<Point, MapIncidentFeatureProps>> {
+  const db = getDb();
+  const args: (string | number)[] = [];
+  const clauses: string[] = [
+    "i.map_eligible = 1",
+    "i.status IN ('approved', 'published')",
+    "i.lat IS NOT NULL AND i.lng IS NOT NULL",
+  ];
+
+  if (options?.date) {
+    const bounds = dayBoundsISO(options.date);
+    if (bounds) {
+      clauses.push("i.occurred_at >= ? AND i.occurred_at <= ?");
+      args.push(bounds.start, bounds.end);
+    }
+  } else {
+    const hours = options?.hours ?? 72;
+    const since = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+    clauses.push("i.occurred_at >= ?");
+    args.push(since);
+  }
+
+  if (options?.theaterSlug) {
+    clauses.push("t.slug = ?");
+    args.push(options.theaterSlug);
+  }
+
+  const result = await db.execute({
+    sql: `
+      SELECT i.id, i.title, i.summary, i.title_pl, i.title_en, i.summary_pl, i.summary_en,
+             i.type, i.confidence, i.lat, i.lng, i.occurred_at,
+             t.slug AS theater_slug, t.name_pl AS theater_name_pl, t.name_en AS theater_name_en
+      FROM incidents i
+      JOIN theaters t ON t.id = i.theater_id
+      WHERE ${clauses.join(" AND ")}
       ORDER BY i.occurred_at DESC
       LIMIT 500
     `,
@@ -48,14 +88,58 @@ export async function getMapGeoJSON(options?: {
         id: String(row.id),
         title: String(row.title),
         summary: String(row.summary),
+        title_pl: row.title_pl != null ? String(row.title_pl) : null,
+        title_en: row.title_en != null ? String(row.title_en) : null,
+        summary_pl: row.summary_pl != null ? String(row.summary_pl) : null,
+        summary_en: row.summary_en != null ? String(row.summary_en) : null,
         type: row.type as MapIncidentFeatureProps["type"],
         confidence: row.confidence as MapIncidentFeatureProps["confidence"],
         theater_slug: String(row.theater_slug),
         theater_name_pl: String(row.theater_name_pl),
+        theater_name_en: String(row.theater_name_en),
         occurred_at: String(row.occurred_at),
       },
     })),
   };
+}
+
+export async function listIncidentsForDate(options: {
+  date: string;
+  theaterSlug?: string;
+  mapEligibleOnly?: boolean;
+}) {
+  const bounds = dayBoundsISO(options.date);
+  if (!bounds) return [];
+
+  const db = getDb();
+  const args: (string | number)[] = [bounds.start, bounds.end];
+  const clauses = ["i.occurred_at >= ?", "i.occurred_at <= ?"];
+
+  if (options.mapEligibleOnly !== false) {
+    clauses.push("i.map_eligible = 1");
+    clauses.push("i.status IN ('approved', 'published')");
+  } else {
+    clauses.push("i.status IN ('approved', 'published', 'pending')");
+  }
+
+  if (options.theaterSlug) {
+    clauses.push("t.slug = ?");
+    args.push(options.theaterSlug);
+  }
+
+  const result = await db.execute({
+    sql: `
+      SELECT i.*, t.slug AS theater_slug, t.name_pl, t.name_en
+      FROM incidents i
+      JOIN theaters t ON t.id = i.theater_id
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY i.occurred_at DESC
+      LIMIT 200
+    `,
+    args,
+  });
+
+  return JSON.parse(JSON.stringify(result.rows)) as Record<string, unknown>[];
 }
 
 export async function getIncidentWithSources(id: string) {
@@ -83,7 +167,11 @@ export async function getIncidentWithSources(id: string) {
   });
 
   return {
-    incident: inc.rows[0],
-    sources: sources.rows,
+    incident: plainRow(inc.rows[0]),
+    sources: sources.rows.map((r) => plainRow(r)),
   };
+}
+
+function plainRow(row: unknown) {
+  return JSON.parse(JSON.stringify(row)) as Record<string, unknown>;
 }

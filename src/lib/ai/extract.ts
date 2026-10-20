@@ -14,8 +14,10 @@ When is_incident is true, use EXACTLY these fields and enums:
   "is_incident": true,
   "theater_slug": "ukraine-russia" | "middle-east" | "africa" | "indo-pacific" | "europe-hybrid" | "americas",
   "type": "kinetic" | "sabotage" | "cyber" | "air" | "naval" | "diplomatic" | "other",
-  "title": string,
-  "summary": string,
+  "title_pl": string,
+  "title_en": string,
+  "summary_pl": string,
+  "summary_en": string,
   "lat": number | null,
   "lng": number | null,
   "occurred_at": ISO-8601 string | null,
@@ -23,6 +25,7 @@ When is_incident is true, use EXACTLY these fields and enums:
   "merge_hint": string | null
 }
 Rules:
+- Always provide BOTH Polish (title_pl, summary_pl) and English (title_en, summary_en).
 - confidence must be one of those three strings (never a number).
 - type must be one of the seven enums (use "air" for drones/missiles/aircraft; "kinetic" for ground fighting; "other" if unsure).
 - theater_slug must be one of the six enums (Black Sea / Ukraine → ukraine-russia; Europe hybrid/sabotage → europe-hybrid).
@@ -98,6 +101,12 @@ function normalizeExtract(raw: unknown): unknown {
     const s = o.theater_slug.toLowerCase().trim();
     o.theater_slug = theaterMap[s] ?? s;
   }
+
+  // Legacy single-lang model output → bilingual fields
+  if (!o.title_pl && typeof o.title === "string") o.title_pl = o.title;
+  if (!o.title_en && typeof o.title === "string") o.title_en = o.title;
+  if (!o.summary_pl && typeof o.summary === "string") o.summary_pl = o.summary;
+  if (!o.summary_en && typeof o.summary === "string") o.summary_en = o.summary;
 
   return o;
 }
@@ -206,7 +215,7 @@ export async function extractIncidents(limit = 15): Promise<{
         slugToId.get("europe-hybrid")!;
 
       // Merge hint: same title-ish within 48h in same theater
-      const mergeKey = (data.merge_hint || data.title)
+      const mergeKey = (data.merge_hint || data.title_en || data.title_pl)
         .toLowerCase()
         .slice(0, 80);
       const since = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
@@ -279,15 +288,21 @@ export async function extractIncidents(limit = 15): Promise<{
         [
           {
             sql: `INSERT INTO incidents (
-              id, theater_id, type, title, summary, lat, lng, occurred_at,
+              id, theater_id, type, title, summary,
+              title_pl, title_en, summary_pl, summary_en,
+              lat, lng, occurred_at,
               confidence, status, map_eligible, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
               incidentId,
               theaterId,
               data.type as IncidentType,
-              data.title,
-              data.summary,
+              data.title_pl,
+              data.summary_pl,
+              data.title_pl,
+              data.title_en,
+              data.summary_pl,
+              data.summary_en,
               data.lat,
               data.lng,
               occurred,
