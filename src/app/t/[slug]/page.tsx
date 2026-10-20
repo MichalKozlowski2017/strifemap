@@ -6,11 +6,8 @@ import {
   getLatestMapDate,
   listIncidentsForDate,
 } from "@/lib/geo/incidents";
-import {
-  getTheaterBySlug,
-  latestBrief,
-  listTheaters,
-} from "@/lib/db/queries";
+import { getTheaterBySlug, listTheaters } from "@/lib/db/queries";
+import { ensureSitrepForTheaterDay } from "@/lib/ai/sitrep";
 import { getLocale } from "@/lib/i18n/locale";
 import { theaterName } from "@/lib/i18n/content";
 import { t } from "@/lib/i18n/dictionary";
@@ -46,15 +43,19 @@ export default async function TheaterPage({
   const date =
     requested ?? (await getLatestMapDate(theater.slug)) ?? todayISO();
 
-  const [theaters, rows, brief] = await Promise.all([
+  const [theaters, rows] = await Promise.all([
     listTheaters(),
     listIncidentsForDate({
       date,
       theaterSlug: theater.slug,
       mapEligibleOnly: true,
     }),
-    latestBrief(theater.id),
   ]);
+
+  // Day-scoped sitrep only — never fall back to another day's brief.
+  // If this day has incidents but no brief yet, generate both languages.
+  const sitrepResult = await ensureSitrepForTheaterDay(theater.id, date);
+  const brief = sitrepResult.brief;
 
   let sitrep: SitrepJson | null = null;
   if (brief?.content) {
@@ -82,12 +83,19 @@ export default async function TheaterPage({
 
   const briefTitle =
     locale === "en"
-      ? sitrep?.headline_en ?? null
-      : sitrep?.headline_pl ?? null;
+      ? (sitrep?.headline_en ?? null)
+      : (sitrep?.headline_pl ?? null);
   const briefBody =
-    locale === "en" ? sitrep?.body_en ?? null : sitrep?.body_pl ?? null;
+    locale === "en" ? (sitrep?.body_en ?? null) : (sitrep?.body_pl ?? null);
   const briefPoints =
     locale === "en" ? sitrep?.key_points_en : sitrep?.key_points_pl;
+
+  const emptySitrep =
+    !sitrep || (!briefTitle && !briefBody)
+      ? incidents.length === 0
+        ? d.noSitrepNoIncidents
+        : d.noSitrep
+      : null;
 
   const isHybrid = theater.slug === "europe-hybrid";
 
@@ -127,7 +135,7 @@ export default async function TheaterPage({
         geojsonUrl={`/api/geojson?date=${date}&theater=${theater.slug}`}
         incidents={incidents}
         briefTitle={briefTitle}
-        briefBody={briefBody ?? (sitrep ? null : d.noSitrep)}
+        briefBody={briefBody ?? emptySitrep}
         briefPoints={briefPoints}
         mapView={{
           longitude: theater.center_lng ?? 20,

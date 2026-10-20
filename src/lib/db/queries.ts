@@ -79,6 +79,24 @@ export async function latestBrief(
   return plainRow<Brief>(r.rows[0]);
 }
 
+export async function getBriefForDate(
+  theaterId: string,
+  dateISO: string,
+  kind = "daily_sitrep",
+): Promise<Brief | null> {
+  const db = getDb();
+  const r = await db.execute({
+    sql: `
+      SELECT * FROM briefs
+      WHERE theater_id = ? AND kind = ? AND for_date = ?
+      ORDER BY created_at DESC
+      LIMIT 1
+    `,
+    args: [theaterId, kind, dateISO],
+  });
+  return plainRow<Brief>(r.rows[0]);
+}
+
 export async function listSources(): Promise<SourceWithTheater[]> {
   const db = getDb();
   const r = await db.execute(`

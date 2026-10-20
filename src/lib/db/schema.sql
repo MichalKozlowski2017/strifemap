@@ -77,10 +77,12 @@ CREATE TABLE IF NOT EXISTS briefs (
   kind TEXT NOT NULL,
   lang TEXT NOT NULL,
   content TEXT NOT NULL,
-  created_at TEXT NOT NULL
+  created_at TEXT NOT NULL,
+  for_date TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_briefs_theater ON briefs(theater_id, kind, created_at);
+CREATE INDEX IF NOT EXISTS idx_briefs_day ON briefs(theater_id, kind, for_date);
 
 CREATE TABLE IF NOT EXISTS generation_jobs (
   id TEXT PRIMARY KEY,

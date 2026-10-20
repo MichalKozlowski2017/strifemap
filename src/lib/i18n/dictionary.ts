@@ -19,6 +19,7 @@ export const dict = {
     incidents: "Incydenty",
     sitrep: "Sitrep",
     noSitrep: "Brak briefingu na ten dzień.",
+    noSitrepNoIncidents: "Brak mapowanych incydentów — nie ma z czego zbudować sitrep.",
     backToMap: "← Mapa",
     legend: "Legenda",
     type: {
@@ -52,6 +53,8 @@ export const dict = {
     incidents: "Incidents",
     sitrep: "Sitrep",
     noSitrep: "No briefing for this day.",
+    noSitrepNoIncidents:
+      "No mapped incidents — nothing to build a sitrep from.",
     backToMap: "← Map",
     legend: "Legend",
     type: {

@@ -80,6 +80,7 @@ export type Brief = {
   lang: string;
   content: string;
   created_at: string;
+  for_date: string | null;
 };
 
 export type IncidentSourceLink = {
