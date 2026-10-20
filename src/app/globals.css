@@ -1,26 +1,109 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0c1117;
+  --foreground: #e8ebe6;
+  --brass: #c4a35a;
+  --panel: #121820;
+  --fog: rgba(196, 163, 90, 0.08);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-body);
+  --font-display: var(--font-display);
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(196, 163, 90, 0.12), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(45, 74, 62, 0.25), transparent 50%),
+    var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+  min-height: 100vh;
+}
+
+.maplibregl-popup-content {
+  border-radius: 2px !important;
+  padding: 10px 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45) !important;
+  background: #f3efe6 !important;
+}
+
+.maplibregl-popup-close-button {
+  font-size: 18px !important;
+  color: #444 !important;
+  padding: 4px 8px !important;
+}
+
+.maplibregl-ctrl-group {
+  background: #121820 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  box-shadow: none !important;
+}
+
+.maplibregl-ctrl-group button {
+  background-color: transparent !important;
+}
+
+.maplibregl-ctrl-group button + button {
+  border-top-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon,
+.maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+  filter: invert(1) opacity(0.85);
+}
+
+@keyframes wn-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wn-scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+.wn-fade-up {
+  animation: wn-fade-up 0.7s ease-out both;
+}
+
+.wn-fade-up-delay {
+  animation: wn-fade-up 0.8s ease-out 0.15s both;
+}
+
+.wn-scanline {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.04;
+}
+
+.wn-scanline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 20%;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(196, 163, 90, 0.6),
+    transparent
+  );
+  animation: wn-scan 9s linear infinite;
 }

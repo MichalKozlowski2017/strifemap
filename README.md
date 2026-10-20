@@ -1,36 +1,66 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# War News
 
-## Getting Started
+Global conflict intelligence hub: **theaters → incidents on a map → AI briefs**.
 
-First, run the development server:
+Stack: Next.js (App Router) · Tailwind · Turso/libSQL (SQLite fallback) · MapLibre · OpenAI (`gpt-4o-mini`, optional Ollama).
+
+## Quick start (local SQLite)
 
 ```bash
+npm install
+npm run db:migrate
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). Seed data places published, map-eligible incidents on the home map — no OpenAI key required for the demo.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Copy `.env.example` → `.env.local`:
 
-## Learn More
+| Variable | Required | Notes |
+|---|---|---|
+| `TURSO_DATABASE_URL` | No | Unset → `file:./data/warnews.db` |
+| `TURSO_AUTH_TOKEN` | With Turso | Turso auth token |
+| `OPENAI_API_KEY` | No | Without it, `/api/cron/extract` and `/api/cron/sitrep` skip gracefully |
+| `OPENAI_MODEL` | No | Default `gpt-4o-mini` |
+| `OPENAI_BASE_URL` | No | e.g. `http://127.0.0.1:11434/v1` for Ollama |
+| `CRON_SECRET` | Prod | `Authorization: Bearer …` or `?secret=` |
+| `RAW_BODY_RETENTION_DAYS` | No | Default `5` (strip raw bodies after process) |
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Script | Purpose |
+|---|---|
+| `npm run db:migrate` | Apply `src/lib/db/schema.sql` |
+| `npm run db:seed` | 6 theaters, ~12 RSS sources, sample incidents + EU sitrep |
+| `npm run dev` | Next.js dev server |
+| `npm run build` / `start` | Production |
+| `npm run lint` | ESLint |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Cron API (protect with `CRON_SECRET` in production)
 
-## Deploy on Vercel
+| Route | Job |
+|---|---|
+| `GET/POST /api/cron/ingest` | RSS batch ingest, dedupe by `content_hash` |
+| `GET/POST /api/cron/extract` | Raw → Zod incident JSON (OpenAI) |
+| `GET/POST /api/cron/sitrep` | Daily sitrep per theater |
+| `GET/POST /api/cron/cleanup` | Strip old raw bodies; rotate jobs |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+`vercel.json` schedules these crons optionally.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Product surface
+
+- `/` — full-bleed MapLibre world map (last 72h published / map-eligible)
+- `/api/geojson` — cached GeoJSON (`Cache-Control` / s-maxage)
+- `/t/[slug]` — theater sitrep + list + focused map (Europe-hybrid callout)
+- `/panel` — toggle sources, raw queue, approve/reject incidents
+
+### Quality gate
+
+Unverified without 2+ sources **or** missing lat/lng → not `map_eligible` (stays in review).
+
+## Theaters
+
+`ukraine-russia` · `middle-east` · `africa` · `indo-pacific` · `europe-hybrid` · `americas`
