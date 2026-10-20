@@ -6,12 +6,101 @@ import type { Confidence, IncidentType } from "@/lib/types";
 import { newId, nowIso } from "@/lib/utils/id";
 
 const SYSTEM = `You extract structured conflict/security incidents from news items.
-Return JSON only matching the schema. Do not invent facts.
-If the item is not about a conflict/security/military/hybrid event, set is_incident=false.
-Prefer real coordinates when the place is clear; otherwise lat/lng null.
-theater_slug must be one of: ukraine-russia, middle-east, africa, indo-pacific, europe-hybrid, americas.
-europe-hybrid is for sabotage, hybrid, critical infrastructure attacks in Europe outside the UA front.
-merge_hint: short normalized key for the same story (place + event), or null.`;
+Return a single JSON object. Do not invent facts.
+If the item is not about a conflict/security/military/hybrid event, return {"is_incident":false}.
+
+When is_incident is true, use EXACTLY these fields and enums:
+{
+  "is_incident": true,
+  "theater_slug": "ukraine-russia" | "middle-east" | "africa" | "indo-pacific" | "europe-hybrid" | "americas",
+  "type": "kinetic" | "sabotage" | "cyber" | "air" | "naval" | "diplomatic" | "other",
+  "title": string,
+  "summary": string,
+  "lat": number | null,
+  "lng": number | null,
+  "occurred_at": ISO-8601 string | null,
+  "confidence": "confirmed" | "reported" | "unverified",
+  "merge_hint": string | null
+}
+Rules:
+- confidence must be one of those three strings (never a number).
+- type must be one of the seven enums (use "air" for drones/missiles/aircraft; "kinetic" for ground fighting; "other" if unsure).
+- theater_slug must be one of the six enums (Black Sea / Ukraine → ukraine-russia; Europe hybrid/sabotage → europe-hybrid).
+- Prefer real coordinates when the place is clear; otherwise lat/lng null.
+- merge_hint: short normalized key for the same story (place + event), or null.`;
+
+function normalizeExtract(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const o = { ...(raw as Record<string, unknown>) };
+
+  if (o.is_incident === false) return o;
+
+  const typeMap: Record<string, string> = {
+    military: "kinetic",
+    "military conflict": "kinetic",
+    conflict: "kinetic",
+    ground: "kinetic",
+    shelling: "kinetic",
+    drone: "air",
+    drones: "air",
+    missile: "air",
+    missiles: "air",
+    airstrike: "air",
+    aviation: "air",
+    bombing: "air",
+    ship: "naval",
+    shipping: "naval",
+    maritime: "naval",
+    hack: "cyber",
+    hacking: "cyber",
+    ddos: "cyber",
+    diplomacy: "diplomatic",
+    sanctions: "diplomatic",
+  };
+  if (typeof o.type === "string") {
+    const t = o.type.toLowerCase().trim();
+    o.type = typeMap[t] ?? (t.includes("drone") || t.includes("missile") ? "air" : t);
+  }
+
+  if (typeof o.confidence === "number") {
+    o.confidence =
+      o.confidence >= 0.85
+        ? "confirmed"
+        : o.confidence >= 0.55
+          ? "reported"
+          : "unverified";
+  } else if (typeof o.confidence === "string") {
+    const c = o.confidence.toLowerCase();
+    if (["high", "certain", "confirmed"].includes(c)) o.confidence = "confirmed";
+    else if (["medium", "likely", "reported"].includes(c)) o.confidence = "reported";
+    else if (["low", "unclear", "unverified"].includes(c)) o.confidence = "unverified";
+  }
+
+  const theaterMap: Record<string, string> = {
+    "black-sea": "ukraine-russia",
+    blacksea: "ukraine-russia",
+    ukraine: "ukraine-russia",
+    russia: "ukraine-russia",
+    "middle east": "middle-east",
+    gaza: "middle-east",
+    israel: "middle-east",
+    iran: "middle-east",
+    lebanon: "middle-east",
+    sudan: "africa",
+    sahel: "africa",
+    europe: "europe-hybrid",
+    "baltic": "europe-hybrid",
+    china: "indo-pacific",
+    "south-china-sea": "indo-pacific",
+    taiwan: "indo-pacific",
+  };
+  if (typeof o.theater_slug === "string") {
+    const s = o.theater_slug.toLowerCase().trim();
+    o.theater_slug = theaterMap[s] ?? s;
+  }
+
+  return o;
+}
 
 type PendingRow = {
   id: string;
@@ -86,9 +175,25 @@ export async function extractIncidents(limit = 15): Promise<{
       });
 
       const rawText = completion.choices[0]?.message?.content ?? "{}";
-      const parsed = incidentExtractSchema.safeParse(JSON.parse(rawText));
+      const rawJson = JSON.parse(rawText) as { is_incident?: boolean };
+      if (rawJson?.is_incident === false) {
+        await markRaw(row.id, "skipped");
+        skipped += 1;
+        continue;
+      }
+
+      const parsed = incidentExtractSchema.safeParse(normalizeExtract(rawJson));
 
       if (!parsed.success || !parsed.data.is_incident) {
+        if (!parsed.success) {
+          console.warn(
+            "Extract schema miss for",
+            row.id,
+            parsed.error.issues
+              .map((i) => `${i.path.join(".")}:${i.message}`)
+              .join("; "),
+          );
+        }
         await markRaw(row.id, "skipped");
         skipped += 1;
         continue;
