@@ -3,10 +3,37 @@ import type { Brief, Incident, Source, Theater } from "@/lib/types";
 import { computeMapEligible } from "@/lib/ai/quality";
 import { nowIso } from "@/lib/utils/id";
 
+/** libSQL Row instances carry methods — strip them for RSC → client props. */
+function plainRows<T>(rows: readonly unknown[]): T[] {
+  return JSON.parse(JSON.stringify(rows)) as T[];
+}
+
+function plainRow<T>(row: unknown | undefined): T | null {
+  if (row == null) return null;
+  return JSON.parse(JSON.stringify(row)) as T;
+}
+
+export type SourceWithTheater = Source & { theater_slug: string | null };
+
+export type PendingRawRow = {
+  id: string;
+  title: string;
+  url: string;
+  status: string;
+  fetched_at: string;
+  source_name: string;
+};
+
+export type ReviewIncidentRow = Incident & {
+  theater_slug: string;
+  name_pl: string;
+  source_count: number;
+};
+
 export async function listTheaters(): Promise<Theater[]> {
   const db = getDb();
   const r = await db.execute(`SELECT * FROM theaters ORDER BY sort ASC`);
-  return r.rows as unknown as Theater[];
+  return plainRows<Theater>(r.rows);
 }
 
 export async function getTheaterBySlug(slug: string): Promise<Theater | null> {
@@ -15,7 +42,7 @@ export async function getTheaterBySlug(slug: string): Promise<Theater | null> {
     sql: `SELECT * FROM theaters WHERE slug = ?`,
     args: [slug],
   });
-  return (r.rows[0] as unknown as Theater) ?? null;
+  return plainRow<Theater>(r.rows[0]);
 }
 
 export async function listIncidentsForTheater(
@@ -32,7 +59,7 @@ export async function listIncidentsForTheater(
     `,
     args: [theaterId, limit],
   });
-  return r.rows as unknown as Incident[];
+  return plainRows<Incident>(r.rows);
 }
 
 export async function latestBrief(
@@ -49,10 +76,10 @@ export async function latestBrief(
     `,
     args: [theaterId, kind],
   });
-  return (r.rows[0] as unknown as Brief) ?? null;
+  return plainRow<Brief>(r.rows[0]);
 }
 
-export async function listSources(): Promise<(Source & { theater_slug: string | null })[]> {
+export async function listSources(): Promise<SourceWithTheater[]> {
   const db = getDb();
   const r = await db.execute(`
     SELECT s.*, t.slug AS theater_slug
@@ -60,10 +87,10 @@ export async function listSources(): Promise<(Source & { theater_slug: string | 
     LEFT JOIN theaters t ON t.id = s.theater_id
     ORDER BY s.name
   `);
-  return r.rows as unknown as (Source & { theater_slug: string | null })[];
+  return plainRows<SourceWithTheater>(r.rows);
 }
 
-export async function listPendingRaw(limit = 50) {
+export async function listPendingRaw(limit = 50): Promise<PendingRawRow[]> {
   const db = getDb();
   const r = await db.execute({
     sql: `
@@ -75,10 +102,12 @@ export async function listPendingRaw(limit = 50) {
     `,
     args: [limit],
   });
-  return r.rows;
+  return plainRows<PendingRawRow>(r.rows);
 }
 
-export async function listReviewIncidents(limit = 50) {
+export async function listReviewIncidents(
+  limit = 50,
+): Promise<ReviewIncidentRow[]> {
   const db = getDb();
   const r = await db.execute({
     sql: `
@@ -93,7 +122,7 @@ export async function listReviewIncidents(limit = 50) {
     `,
     args: [limit],
   });
-  return r.rows;
+  return plainRows<ReviewIncidentRow>(r.rows);
 }
 
 export async function setSourceEnabled(id: string, enabled: boolean) {

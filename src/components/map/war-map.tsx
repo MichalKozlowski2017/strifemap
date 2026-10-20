@@ -8,9 +8,16 @@ import Map, {
   Source,
 } from "react-map-gl/maplibre";
 import type { MapLayerMouseEvent } from "react-map-gl/maplibre";
+import * as maplibregl from "maplibre-gl";
 import type { FeatureCollection, Point } from "geojson";
 import type { MapIncidentFeatureProps } from "@/lib/types";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+// Turbopack often yields a non-http import.meta.url, so the default worker
+// path resolves empty — serve the bundled worker from /public instead.
+if (typeof window !== "undefined") {
+  maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
+}
 
 type Props = {
   geojsonUrl: string;
@@ -86,6 +93,7 @@ export function WarMap({
   return (
     <div className={className ?? "relative h-full w-full"}>
       <Map
+        mapLib={maplibregl}
         initialViewState={initialViewState}
         mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
         style={{ width: "100%", height: "100%" }}

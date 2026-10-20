@@ -2,48 +2,20 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-
-type SourceRow = {
-  id: string;
-  name: string;
-  url: string;
-  enabled: number;
-  theater_slug: string | null;
-  trust_weight: number;
-};
-
-type RawRow = {
-  id: string;
-  title: string;
-  url: string;
-  status: string;
-  fetched_at: string;
-  source_name: string;
-};
-
-type IncidentRow = {
-  id: string;
-  title: string;
-  summary: string;
-  status: string;
-  confidence: string;
-  type: string;
-  map_eligible: number;
-  theater_slug: string;
-  name_pl: string;
-  lat: number | null;
-  lng: number | null;
-  source_count: number;
-};
+import type {
+  PendingRawRow,
+  ReviewIncidentRow,
+  SourceWithTheater,
+} from "@/lib/db/queries";
 
 export function PanelClient({
   sources,
   raw,
   incidents,
 }: {
-  sources: SourceRow[];
-  raw: RawRow[];
-  incidents: IncidentRow[];
+  sources: SourceWithTheater[];
+  raw: PendingRawRow[];
+  incidents: ReviewIncidentRow[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();

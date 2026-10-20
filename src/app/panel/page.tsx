@@ -45,11 +45,7 @@ export default async function PanelPage() {
         </div>
       </div>
       <div className="mx-auto max-w-5xl px-4 py-10 md:px-6">
-        <PanelClient
-          sources={sources}
-          raw={raw as never}
-          incidents={incidents as never}
-        />
+        <PanelClient sources={sources} raw={raw} incidents={incidents} />
       </div>
     </main>
   );

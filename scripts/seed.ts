@@ -94,7 +94,7 @@ const SOURCES: {
 }[] = [
   {
     name: "Kyiv Independent",
-    url: "https://kyivindependent.com/feed/",
+    url: "https://kyivindependent.com/news-archive/rss/",
     theater: "ukraine-russia",
     trust: 1.2,
   },
