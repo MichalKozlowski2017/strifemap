@@ -4,6 +4,7 @@ import { parseDateISO, todayISO } from "@/lib/dates";
 import { getLatestMapDate, listIncidentsForDate } from "@/lib/geo/incidents";
 import { getLocale } from "@/lib/i18n/locale";
 import { listTheaters } from "@/lib/db/queries";
+import { getNewsForDay } from "@/lib/news/items";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,10 @@ export default async function HomePage({
   const requested = params.date && parseDateISO(params.date) ? params.date : null;
   const date = requested ?? (await getLatestMapDate()) ?? todayISO();
 
-  const rows = await listIncidentsForDate({ date, mapEligibleOnly: true });
+  const [rows, news] = await Promise.all([
+    listIncidentsForDate({ date, mapEligibleOnly: true }),
+    getNewsForDay({ date }),
+  ]);
   const incidents = rows.map((r) => ({
     id: String(r.id),
     type: r.type as never,
@@ -44,6 +48,7 @@ export default async function HomePage({
         date={date}
         geojsonUrl={`/api/geojson?date=${date}`}
         incidents={incidents}
+        news={news}
       />
     </main>
   );

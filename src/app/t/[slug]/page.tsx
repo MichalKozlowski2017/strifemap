@@ -11,6 +11,7 @@ import { ensureSitrepForTheaterDay } from "@/lib/ai/sitrep";
 import { getLocale } from "@/lib/i18n/locale";
 import { theaterName } from "@/lib/i18n/content";
 import { t } from "@/lib/i18n/dictionary";
+import { getNewsForDay } from "@/lib/news/items";
 
 type SitrepJson = {
   headline_pl?: string;
@@ -43,13 +44,14 @@ export default async function TheaterPage({
   const date =
     requested ?? (await getLatestMapDate(theater.slug)) ?? todayISO();
 
-  const [theaters, rows] = await Promise.all([
+  const [theaters, rows, news] = await Promise.all([
     listTheaters(),
     listIncidentsForDate({
       date,
       theaterSlug: theater.slug,
       mapEligibleOnly: true,
     }),
+    getNewsForDay({ date, theaterSlug: theater.slug }),
   ]);
 
   // Day-scoped sitrep only — never fall back to another day's brief.
@@ -134,6 +136,7 @@ export default async function TheaterPage({
         date={date}
         geojsonUrl={`/api/geojson?date=${date}&theater=${theater.slug}`}
         incidents={incidents}
+        news={news}
         briefTitle={briefTitle}
         briefBody={briefBody ?? emptySitrep}
         briefPoints={briefPoints}

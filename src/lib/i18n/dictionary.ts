@@ -24,6 +24,12 @@ export const dict = {
     sources: "Źródła",
     theater: "Teatr",
     incidents: "Incydenty",
+    news: "Wiadomości",
+    newsNotOnMap: "nie na mapie",
+    newsHint:
+      "Doniesienia konfliktowe bez pinezki — bez współrzędnych, analizy i komunikaty.",
+    newsEmpty: "Brak wiadomości na ten dzień.",
+    newsReadSource: "Czytaj źródło →",
     sitrep: "Sitrep",
     noSitrep: "Brak briefingu na ten dzień.",
     noSitrepNoIncidents: "Brak mapowanych incydentów — nie ma z czego zbudować sitrep.",
@@ -69,6 +75,12 @@ export const dict = {
     sources: "Sources",
     theater: "Theater",
     incidents: "Incidents",
+    news: "News",
+    newsNotOnMap: "not on map",
+    newsHint:
+      "Conflict reports without a map pin — no coordinates, analysis, and statements.",
+    newsEmpty: "No news for this day.",
+    newsReadSource: "Read source →",
     sitrep: "Sitrep",
     noSitrep: "No briefing for this day.",
     noSitrepNoIncidents:

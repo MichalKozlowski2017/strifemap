@@ -142,6 +142,77 @@ export async function listIncidentsForDate(options: {
   return JSON.parse(JSON.stringify(result.rows)) as Record<string, unknown>[];
 }
 
+/** Conflict items for the News feed — same day as map, but not map pins. */
+export type NewsItemRow = {
+  id: string;
+  occurred_at: string;
+  title: string | null;
+  summary: string | null;
+  title_pl: string | null;
+  title_en: string | null;
+  summary_pl: string | null;
+  summary_en: string | null;
+  type: string;
+  theater_slug: string;
+  source_name: string | null;
+  source_url: string | null;
+};
+
+export async function listNewsForDate(options: {
+  date: string;
+  theaterSlug?: string;
+  limit?: number;
+}): Promise<NewsItemRow[]> {
+  const bounds = dayBoundsISO(options.date);
+  if (!bounds) return [];
+
+  const db = getDb();
+  const args: (string | number)[] = [bounds.start, bounds.end];
+  const clauses = [
+    "i.occurred_at >= ?",
+    "i.occurred_at <= ?",
+    "i.map_eligible = 0",
+    "i.status IN ('approved', 'published', 'pending')",
+  ];
+
+  if (options.theaterSlug) {
+    clauses.push("t.slug = ?");
+    args.push(options.theaterSlug);
+  }
+
+  const limit = options.limit ?? 40;
+  args.push(limit);
+
+  const result = await db.execute({
+    sql: `
+      SELECT i.id, i.occurred_at, i.title, i.summary,
+             i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
+             t.slug AS theater_slug,
+             (
+               SELECT s.name FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+               LIMIT 1
+             ) AS source_name,
+             (
+               SELECT r.url FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               WHERE isrc.incident_id = i.id
+               LIMIT 1
+             ) AS source_url
+      FROM incidents i
+      JOIN theaters t ON t.id = i.theater_id
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY i.occurred_at DESC
+      LIMIT ?
+    `,
+    args,
+  });
+
+  return JSON.parse(JSON.stringify(result.rows)) as NewsItemRow[];
+}
+
 export async function getIncidentWithSources(id: string) {
   const db = getDb();
   const inc = await db.execute({

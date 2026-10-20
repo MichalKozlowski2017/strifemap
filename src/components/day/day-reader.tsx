@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { IncidentDetailPanel } from "@/components/day/incident-detail-panel";
+import { NewsList } from "@/components/day/news-list";
 import { WarMap } from "@/components/map/war-map";
 import {
   confidenceLabel,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { formatTime } from "@/lib/dates";
+import type { DayNewsCard } from "@/lib/news/items";
 import type { Confidence, IncidentType } from "@/lib/types";
 
 export type DayIncidentCard = {
@@ -33,6 +35,7 @@ type Props = {
   date: string;
   geojsonUrl: string;
   incidents: DayIncidentCard[];
+  news?: DayNewsCard[];
   briefTitle?: string | null;
   briefBody?: string | null;
   briefPoints?: string[];
@@ -63,6 +66,7 @@ export function DayReader({
   locale,
   geojsonUrl,
   incidents,
+  news = [],
   briefTitle,
   briefBody,
   briefPoints,
@@ -201,6 +205,8 @@ export function DayReader({
             </div>
           )}
         </div>
+
+        <NewsList locale={locale} items={news} />
       </div>
     </div>
   );
