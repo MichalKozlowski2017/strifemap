@@ -32,6 +32,15 @@ body {
   background: #f3efe6 !important;
 }
 
+.wn-hover-popup .maplibregl-popup-content {
+  padding: 8px 10px !important;
+  pointer-events: auto;
+}
+
+.wn-hover-popup .maplibregl-popup-tip {
+  border-top-color: #f3efe6 !important;
+}
+
 .maplibregl-popup-close-button {
   font-size: 18px !important;
   color: #444 !important;

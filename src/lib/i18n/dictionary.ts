@@ -22,6 +22,10 @@ export const dict = {
     noSitrepNoIncidents: "Brak mapowanych incydentów — nie ma z czego zbudować sitrep.",
     backToMap: "← Mapa",
     legend: "Legenda",
+    close: "Zamknij",
+    details: "Szczegóły",
+    clusterIncidents: "Incydenty w klastrze",
+    noSources: "Brak źródeł",
     type: {
       kinetic: "atak",
       sabotage: "sabotaż",
@@ -57,6 +61,10 @@ export const dict = {
       "No mapped incidents — nothing to build a sitrep from.",
     backToMap: "← Map",
     legend: "Legend",
+    close: "Close",
+    details: "Details",
+    clusterIncidents: "Incidents in cluster",
+    noSources: "No sources",
     type: {
       kinetic: "attack",
       sabotage: "sabotage",

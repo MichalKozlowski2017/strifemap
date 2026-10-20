@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { IncidentDetailPanel } from "@/components/day/incident-detail-panel";
 import { WarMap } from "@/components/map/war-map";
 import {
   confidenceLabel,
@@ -76,6 +77,11 @@ export function DayReader({
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [selectedId]);
 
+  const selected = useMemo(
+    () => incidents.find((i) => i.id === selectedId) ?? null,
+    [incidents, selectedId],
+  );
+
   const synthesized = useMemo(() => {
     if (briefTitle || briefBody) return null;
     if (incidents.length === 0) return null;
@@ -145,44 +151,56 @@ export function DayReader({
           )}
         </section>
 
-        <section>
-          <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl tracking-wide text-[#c4a35a]">
-            {d.incidents}
-          </h2>
-          <ul className="space-y-3">
-            {incidents.map((incident) => {
-              const active = selectedId === incident.id;
-              const title = localizedTitle(incident, locale);
-              const summary = localizedSummary(incident, locale);
-              return (
-                <li key={incident.id}>
-                  <button
-                    type="button"
-                    id={`incident-${incident.id}`}
-                    onClick={() => setSelectedId(incident.id)}
-                    className={`w-full border px-4 py-3 text-left transition ${
-                      active
-                        ? "border-[#c4a35a]/70 bg-[#c4a35a]/10"
-                        : "border-white/10 bg-black/20 hover:border-white/25"
-                    }`}
-                  >
-                    <p className="text-[10px] uppercase tracking-widest text-stone-500">
-                      {formatTime(incident.occurred_at, locale)} ·{" "}
-                      {typeLabel(incident.type, locale)} ·{" "}
-                      {confidenceLabel(incident.confidence, locale)}
-                    </p>
-                    <p className="mt-1 font-medium text-stone-100">{title}</p>
-                    {summary && (
-                      <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-stone-400">
-                        {summary}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] lg:items-start">
+          <section>
+            <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl tracking-wide text-[#c4a35a]">
+              {d.incidents}
+            </h2>
+            <ul className="space-y-3">
+              {incidents.map((incident) => {
+                const active = selectedId === incident.id;
+                const title = localizedTitle(incident, locale);
+                const summary = localizedSummary(incident, locale);
+                return (
+                  <li key={incident.id}>
+                    <button
+                      type="button"
+                      id={`incident-${incident.id}`}
+                      onClick={() => setSelectedId(incident.id)}
+                      className={`w-full border px-4 py-3 text-left transition ${
+                        active
+                          ? "border-[#c4a35a]/70 bg-[#c4a35a]/10"
+                          : "border-white/10 bg-black/20 hover:border-white/25"
+                      }`}
+                    >
+                      <p className="text-[10px] uppercase tracking-widest text-stone-500">
+                        {formatTime(incident.occurred_at, locale)} ·{" "}
+                        {typeLabel(incident.type, locale)} ·{" "}
+                        {confidenceLabel(incident.confidence, locale)}
                       </p>
-                    )}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                      <p className="mt-1 font-medium text-stone-100">{title}</p>
+                      {summary && (
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-stone-400">
+                          {summary}
+                        </p>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+
+          {selected && (
+            <div className="lg:sticky lg:top-28">
+              <IncidentDetailPanel
+                locale={locale}
+                incident={selected}
+                onClose={() => setSelectedId(null)}
+              />
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
