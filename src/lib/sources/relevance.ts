@@ -15,6 +15,8 @@ const POSITIVE = [
   /\b(gaza|ukraine|israel|hezbollah|hamas|sudan|sahel|taiwan|hormuz)\b/i,
   /\b(nato|pentagon|defence|defense|armed forces)\b/i,
   /\b(wojna|atak|rakiet|dron|front|sabotaż|cyber|żołnier)/i,
+  /\b(artillery|mortar|tank|infantry|brigade|battalion)\b/i,
+  /\b(hybrid|disinformation|critical infrastructure)\b/i,
 ];
 
 const NEGATIVE = [
@@ -23,10 +25,12 @@ const NEGATIVE = [
   /\b(recipe|cooking|restaurant review|horoscope)\b/i,
   /\b(stock market tip|crypto pump|nft)\b/i,
   /\b(transfer window|premier league|champions league)\b/i,
+  /\b(box office|streaming series|reality tv)\b/i,
+  /\b(weather forecast|lottery results)\b/i,
 ];
 
 export function relevanceScore(title: string, body: string | null): number {
-  const text = `${title}\n${body ?? ""}`;
+  const text = `${title}\n${(body ?? "").slice(0, 2_000)}`;
   let score = 0;
   for (const re of POSITIVE) {
     if (re.test(text)) score += 1;
@@ -37,7 +41,7 @@ export function relevanceScore(title: string, body: string | null): number {
   return score;
 }
 
-/** True if item is worth spending an extract call on. */
+/** Ingest / display: conflict-relevant enough to keep. */
 export function isLikelyIncident(title: string, body: string | null): boolean {
-  return relevanceScore(title, body) >= 1;
+  return relevanceScore(title, body) >= 2;
 }

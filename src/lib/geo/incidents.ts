@@ -153,9 +153,12 @@ export type NewsItemRow = {
   summary_pl: string | null;
   summary_en: string | null;
   type: string;
+  confidence: string;
   theater_slug: string;
   source_name: string | null;
   source_url: string | null;
+  trust_weight: number;
+  source_count: number;
 };
 
 export async function listNewsForDate(options: {
@@ -187,20 +190,34 @@ export async function listNewsForDate(options: {
     sql: `
       SELECT i.id, i.occurred_at, i.title, i.summary,
              i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
+             i.confidence,
              t.slug AS theater_slug,
              (
                SELECT s.name FROM incident_sources isrc
                JOIN raw_events r ON r.id = isrc.raw_event_id
                JOIN sources s ON s.id = r.source_id
                WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC
                LIMIT 1
              ) AS source_name,
              (
                SELECT r.url FROM incident_sources isrc
                JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
                WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC
                LIMIT 1
-             ) AS source_url
+             ) AS source_url,
+             (
+               SELECT COALESCE(MAX(s.trust_weight), 1.0) FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+             ) AS trust_weight,
+             (
+               SELECT COUNT(*) FROM incident_sources isrc
+               WHERE isrc.incident_id = i.id
+             ) AS source_count
       FROM incidents i
       JOIN theaters t ON t.id = i.theater_id
       WHERE ${clauses.join(" AND ")}

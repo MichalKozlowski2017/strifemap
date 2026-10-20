@@ -178,6 +178,78 @@ export const CATALOG_SOURCES: CatalogSource[] = [
     trust: 0.9,
   },
 
+  // —— Curated free defense / conflict (ingest wide; extract capped) ——
+  {
+    name: "Breaking Defense",
+    url: "https://breakingdefense.com/feed/",
+    type: "rss",
+    theater: null,
+    trust: 1.1,
+  },
+  {
+    name: "Military Times",
+    url: "https://www.militarytimes.com/arc/outboundfeeds/rss/?outputType=xml",
+    type: "rss",
+    theater: null,
+    trust: 1.05,
+  },
+  {
+    name: "Atlantic Council",
+    url: "https://www.atlanticcouncil.org/feed/",
+    type: "rss",
+    theater: "europe-hybrid",
+    trust: 1.05,
+  },
+  {
+    name: "Crisis Group",
+    url: "https://www.crisisgroup.org/rss.xml",
+    type: "rss",
+    theater: null,
+    trust: 1.2,
+  },
+  {
+    name: "Bellingcat",
+    url: "https://www.bellingcat.com/feed/",
+    type: "rss",
+    theater: null,
+    trust: 1.15,
+  },
+  {
+    name: "UN News",
+    url: "https://news.un.org/feed/subscribe/en/news/all/rss.xml",
+    type: "rss",
+    theater: null,
+    trust: 1.1,
+  },
+  {
+    name: "Al-Monitor",
+    url: "https://www.al-monitor.com/rss",
+    type: "rss",
+    theater: "middle-east",
+    trust: 1.1,
+  },
+  {
+    name: "Jerusalem Post",
+    url: "https://www.jpost.com/rss/rssfeedsfrontpage.aspx",
+    type: "rss",
+    theater: "middle-east",
+    trust: 1.0,
+  },
+  {
+    name: "Meduza EN",
+    url: "https://meduza.io/rss/en/all",
+    type: "rss",
+    theater: "ukraine-russia",
+    trust: 1.05,
+  },
+  {
+    name: "Foreign Policy",
+    url: "https://foreignpolicy.com/feed/",
+    type: "rss",
+    theater: null,
+    trust: 1.1,
+  },
+
   // —— Free non-RSS: GDELT DOC 2.0 (conflict/security query) ——
   {
     name: "GDELT Conflict Docs",

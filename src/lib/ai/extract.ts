@@ -1,11 +1,22 @@
 import { getDb } from "@/lib/db/client";
+import {
+  EXTRACT_TRIAGE_BATCH,
+  remainingExtractApiBudget,
+} from "@/lib/ai/budget";
 import { getOpenAI, hasOpenAI, modelName } from "@/lib/ai/client";
+import {
+  autoMapStatus,
+  computeMapEligible,
+} from "@/lib/ai/quality";
 import { incidentExtractSchema } from "@/lib/ai/schemas";
-import { computeMapEligible } from "@/lib/ai/quality";
 import {
   distanceKm,
   titleSimilarity,
 } from "@/lib/sources/normalize";
+import {
+  inferTheaterSlug,
+  triageItem,
+} from "@/lib/sources/triage";
 import type { Confidence, IncidentType } from "@/lib/types";
 import { newId, nowIso } from "@/lib/utils/id";
 
@@ -13,33 +24,16 @@ import { newId, nowIso } from "@/lib/utils/id";
 const MERGE_TITLE_THRESHOLD = 0.55;
 /** Max distance (km) between coords to treat as same incident. */
 const MERGE_DISTANCE_KM = 50;
+/** Cap body chars sent to the model (token savings). */
+const EXTRACT_BODY_CHARS = 1_800;
 
 const SYSTEM = `You extract structured conflict/security incidents from news items.
-Return a single JSON object. Do not invent facts.
-If the item is not about a conflict/security/military/hybrid event, return {"is_incident":false}.
+Return one JSON object. Do not invent facts.
+If not conflict/security/military/hybrid, return {"is_incident":false}.
 
-When is_incident is true, use EXACTLY these fields and enums:
-{
-  "is_incident": true,
-  "theater_slug": "ukraine-russia" | "middle-east" | "africa" | "indo-pacific" | "europe-hybrid" | "americas",
-  "type": "kinetic" | "sabotage" | "cyber" | "air" | "naval" | "diplomatic" | "other",
-  "title_pl": string,
-  "title_en": string,
-  "summary_pl": string,
-  "summary_en": string,
-  "lat": number | null,
-  "lng": number | null,
-  "occurred_at": ISO-8601 string | null,
-  "confidence": "confirmed" | "reported" | "unverified",
-  "merge_hint": string | null
-}
-Rules:
-- Always provide BOTH Polish (title_pl, summary_pl) and English (title_en, summary_en).
-- confidence must be one of those three strings (never a number).
-- type must be one of the seven enums (use "air" for drones/missiles/aircraft; "kinetic" for ground fighting; "other" if unsure).
-- theater_slug must be one of the six enums (Black Sea / Ukraine → ukraine-russia; Europe hybrid/sabotage → europe-hybrid).
-- Prefer real coordinates when the place is clear; otherwise lat/lng null.
-- merge_hint: short normalized key for the same story (place + event), or null.`;
+When is_incident is true, EXACT fields:
+{"is_incident":true,"theater_slug":"ukraine-russia"|"middle-east"|"africa"|"indo-pacific"|"europe-hybrid"|"americas","type":"kinetic"|"sabotage"|"cyber"|"air"|"naval"|"diplomatic"|"other","title_pl":string,"title_en":string,"summary_pl":string,"summary_en":string,"lat":number|null,"lng":number|null,"occurred_at":ISO-8601|null,"confidence":"confirmed"|"reported"|"unverified","merge_hint":string|null}
+Rules: bilingual PL+EN; confidence one of three strings; prefer real coords else null; merge_hint = place+event key or null. Keep summaries to ~2 sentences.`;
 
 function normalizeExtract(raw: unknown): unknown {
   if (!raw || typeof raw !== "object") return raw;
@@ -71,7 +65,8 @@ function normalizeExtract(raw: unknown): unknown {
   };
   if (typeof o.type === "string") {
     const t = o.type.toLowerCase().trim();
-    o.type = typeMap[t] ?? (t.includes("drone") || t.includes("missile") ? "air" : t);
+    o.type =
+      typeMap[t] ?? (t.includes("drone") || t.includes("missile") ? "air" : t);
   }
 
   if (typeof o.confidence === "number") {
@@ -84,8 +79,10 @@ function normalizeExtract(raw: unknown): unknown {
   } else if (typeof o.confidence === "string") {
     const c = o.confidence.toLowerCase();
     if (["high", "certain", "confirmed"].includes(c)) o.confidence = "confirmed";
-    else if (["medium", "likely", "reported"].includes(c)) o.confidence = "reported";
-    else if (["low", "unclear", "unverified"].includes(c)) o.confidence = "unverified";
+    else if (["medium", "likely", "reported"].includes(c))
+      o.confidence = "reported";
+    else if (["low", "unclear", "unverified"].includes(c))
+      o.confidence = "unverified";
   }
 
   const theaterMap: Record<string, string> = {
@@ -101,7 +98,7 @@ function normalizeExtract(raw: unknown): unknown {
     sudan: "africa",
     sahel: "africa",
     europe: "europe-hybrid",
-    "baltic": "europe-hybrid",
+    baltic: "europe-hybrid",
     china: "indo-pacific",
     "south-china-sea": "indo-pacific",
     taiwan: "indo-pacific",
@@ -111,7 +108,6 @@ function normalizeExtract(raw: unknown): unknown {
     o.theater_slug = theaterMap[s] ?? s;
   }
 
-  // Legacy single-lang model output → bilingual fields
   if (!o.title_pl && typeof o.title === "string") o.title_pl = o.title;
   if (!o.title_en && typeof o.title === "string") o.title_en = o.title;
   if (!o.summary_pl && typeof o.summary === "string") o.summary_pl = o.summary;
@@ -127,14 +123,26 @@ type PendingRow = {
   url: string;
   theater_id: string | null;
   theater_slug: string | null;
+  trust_weight: number;
 };
 
-export async function extractIncidents(limit = 15): Promise<{
+function snippetSummary(title: string, body: string | null): string {
+  const raw = (body ?? title).replace(/\s+/g, " ").trim();
+  const parts = raw.match(/[^.!?]+[.!?]+|[^.!?]+$/g) ?? [raw];
+  return parts.slice(0, 2).join(" ").trim().slice(0, 420);
+}
+
+export async function extractIncidents(limit?: number): Promise<{
   processed: number;
   created: number;
   merged: number;
   skipped: number;
+  newsCreated: number;
+  droppedHeuristic: number;
+  apiCalls: number;
+  apiBudgetRemaining: number;
   skippedNoKey: boolean;
+  skippedDailyCap: boolean;
 }> {
   if (!hasOpenAI()) {
     return {
@@ -142,30 +150,44 @@ export async function extractIncidents(limit = 15): Promise<{
       created: 0,
       merged: 0,
       skipped: 0,
+      newsCreated: 0,
+      droppedHeuristic: 0,
+      apiCalls: 0,
+      apiBudgetRemaining: 0,
       skippedNoKey: true,
+      skippedDailyCap: false,
     };
   }
 
-  const openai = getOpenAI()!;
+  const budget = await remainingExtractApiBudget();
+  const apiCap = limit != null ? Math.min(limit, budget.runCap) : budget.runCap;
+  // Even at daily API ceiling we still drain drop/news heuristically (0 tokens).
+  const openai = apiCap > 0 ? getOpenAI()! : null;
   const db = getDb();
 
+  // Only never-classified rows (pending). Already processed/skipped/error stay put.
   const pending = await db.execute({
     sql: `
-      SELECT r.id, r.title, r.body, r.url, s.theater_id, t.slug AS theater_slug
+      SELECT r.id, r.title, r.body, r.url, s.theater_id, s.trust_weight,
+             t.slug AS theater_slug
       FROM raw_events r
       JOIN sources s ON s.id = r.source_id
       LEFT JOIN theaters t ON t.id = s.theater_id
       WHERE r.status = 'pending' AND r.body IS NOT NULL
-      ORDER BY r.fetched_at ASC
+      ORDER BY s.trust_weight DESC, r.fetched_at ASC
       LIMIT ?
     `,
-    args: [limit],
+    args: [EXTRACT_TRIAGE_BATCH],
   });
 
   const rows = pending.rows as unknown as PendingRow[];
   let created = 0;
   let merged = 0;
   let skipped = 0;
+  let newsCreated = 0;
+  let droppedHeuristic = 0;
+  let apiCalls = 0;
+  let triaged = 0;
 
   const theaters = await db.execute(`SELECT id, slug FROM theaters`);
   const slugToId = new Map(
@@ -173,8 +195,39 @@ export async function extractIncidents(limit = 15): Promise<{
   );
 
   for (const row of rows) {
+    triaged += 1;
+    const trust = Number(row.trust_weight) || 1;
+    const { decision } = triageItem({
+      title: row.title,
+      body: row.body,
+      trustWeight: trust,
+      theaterSlug: row.theater_slug,
+    });
+
+    if (decision === "drop") {
+      await markRaw(row.id, "skipped");
+      droppedHeuristic += 1;
+      skipped += 1;
+      continue;
+    }
+
+    if (decision === "news") {
+      const ok = await createNewsOnlyIncident(row, slugToId, trust);
+      if (ok) newsCreated += 1;
+      else skipped += 1;
+      continue;
+    }
+
+    // decision === "extract" — OpenAI only if budget left
+    if (!openai || apiCalls >= apiCap) {
+      // Leave map-candidates pending for a later run (do not re-mark)
+      continue;
+    }
+    const client = openai;
+
     try {
-      const completion = await openai.chat.completions.create({
+      apiCalls += 1;
+      const completion = await client.chat.completions.create({
         model: modelName(),
         temperature: 0.2,
         response_format: { type: "json_object" },
@@ -184,7 +237,7 @@ export async function extractIncidents(limit = 15): Promise<{
             role: "user",
             content: JSON.stringify({
               title: row.title,
-              body: row.body?.slice(0, 3500) ?? "",
+              body: row.body?.slice(0, EXTRACT_BODY_CHARS) ?? "",
               url: row.url,
               suggested_theater: row.theater_slug,
             }),
@@ -218,6 +271,7 @@ export async function extractIncidents(limit = 15): Promise<{
       }
 
       const data = parsed.data;
+      // Don't overwrite existing bilingual fields on merge path; new rows get both.
       const theaterId =
         (data.theater_slug && slugToId.get(data.theater_slug)) ||
         row.theater_id ||
@@ -268,7 +322,6 @@ export async function extractIncidents(limit = 15): Promise<{
         const titleHit = sim >= MERGE_TITLE_THRESHOLD;
         const geoHit = dist != null && dist <= MERGE_DISTANCE_KM;
 
-        // Merge when: strong title match, OR merge_hint + (title OR geo), OR title + geo
         const shouldMerge =
           (titleHit && sim >= 0.72) ||
           (hintHit && (titleHit || geoHit || sim >= 0.4)) ||
@@ -294,7 +347,6 @@ export async function extractIncidents(limit = 15): Promise<{
         });
         const count = Number(srcCount.rows[0].c);
         const confidence = matchConfidence!;
-        // Prefer filling missing coords from the new extract
         const lat = matchLat ?? data.lat;
         const lng = matchLng ?? data.lng;
         const eligible = computeMapEligible({
@@ -302,6 +354,7 @@ export async function extractIncidents(limit = 15): Promise<{
           lat,
           lng,
           sourceCount: count,
+          trustWeight: trust,
         })
           ? 1
           : 0;
@@ -326,13 +379,14 @@ export async function extractIncidents(limit = 15): Promise<{
         lat: data.lat,
         lng: data.lng,
         sourceCount,
-      })
-        ? 1
-        : 0;
-
-      // AI proposals stay pending for human review unless map-ready & confirmed
-      const status =
-        mapEligible && data.confidence === "confirmed" ? "approved" : "pending";
+        trustWeight: trust,
+      });
+      const status = autoMapStatus({
+        mapEligible,
+        confidence: data.confidence,
+        sourceCount,
+        trustWeight: trust,
+      });
 
       await db.batch(
         [
@@ -358,7 +412,7 @@ export async function extractIncidents(limit = 15): Promise<{
               occurred,
               data.confidence,
               status,
-              mapEligible,
+              mapEligible ? 1 : 0,
               nowIso(),
               nowIso(),
             ],
@@ -381,12 +435,73 @@ export async function extractIncidents(limit = 15): Promise<{
   }
 
   return {
-    processed: rows.length,
+    processed: triaged,
     created,
     merged,
     skipped,
+    newsCreated,
+    droppedHeuristic,
+    apiCalls,
+    apiBudgetRemaining: Math.max(0, budget.remainingToday - apiCalls),
     skippedNoKey: false,
+    skippedDailyCap: apiCap <= 0,
   };
+}
+
+/** Conflict news without OpenAI — no coords, never map_eligible. */
+async function createNewsOnlyIncident(
+  row: PendingRow,
+  slugToId: Map<string, string>,
+  trust: number,
+): Promise<boolean> {
+  const db = getDb();
+  const theaterSlug = inferTheaterSlug(
+    row.title,
+    row.body,
+    row.theater_slug,
+  );
+  const theaterId =
+    row.theater_id || slugToId.get(theaterSlug) || slugToId.get("europe-hybrid");
+  if (!theaterId) return false;
+
+  const summary = snippetSummary(row.title, row.body);
+  // Reuse source language for both locales — do not spend tokens translating.
+  const title = row.title.trim();
+  const incidentId = newId();
+
+  await db.batch(
+    [
+      {
+        sql: `INSERT INTO incidents (
+          id, theater_id, type, title, summary,
+          title_pl, title_en, summary_pl, summary_en,
+          lat, lng, occurred_at,
+          confidence, status, map_eligible, created_at, updated_at
+        ) VALUES (?, ?, 'other', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'reported', 'pending', 0, ?, ?)`,
+        args: [
+          incidentId,
+          theaterId,
+          title,
+          summary,
+          title,
+          title,
+          summary,
+          summary,
+          nowIso(),
+          nowIso(),
+          nowIso(),
+        ],
+      },
+      {
+        sql: `INSERT INTO incident_sources (incident_id, raw_event_id) VALUES (?, ?)`,
+        args: [incidentId, row.id],
+      },
+    ],
+    "write",
+  );
+  await markRaw(row.id, "processed");
+  void trust; // used by triage already; kept for future trust column
+  return true;
 }
 
 async function markRaw(

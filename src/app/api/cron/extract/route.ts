@@ -14,13 +14,20 @@ export async function POST(request: NextRequest) {
 
   const job = await startJob("extract");
   try {
-    const result = await extractIncidents(15);
+    const result = await extractIncidents();
     await finishJob(job.id, "completed", result);
     if (result.skippedNoKey) {
       return NextResponse.json({
         ok: true,
         ...result,
         note: "OPENAI_API_KEY missing — extract skipped gracefully",
+      });
+    }
+    if (result.skippedDailyCap) {
+      return NextResponse.json({
+        ok: true,
+        ...result,
+        note: "Daily OpenAI extract ceiling reached — no API calls this run",
       });
     }
     return NextResponse.json({ ok: true, ...result });

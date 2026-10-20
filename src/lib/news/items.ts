@@ -1,5 +1,7 @@
+import { passesNewsGate } from "@/lib/ai/quality";
 import { listNewsForDate, type NewsItemRow } from "@/lib/geo/incidents";
 import { isLikelyIncident } from "@/lib/sources/relevance";
+import type { Confidence } from "@/lib/types";
 
 export type DayNewsCard = {
   id: string;
@@ -27,10 +29,22 @@ export function twoSentences(text: string, maxChars = 320): string {
 function toCard(row: NewsItemRow): DayNewsCard | null {
   const title = row.title_en || row.title_pl || row.title || "";
   const summary = row.summary_en || row.summary_pl || row.summary || "";
-  if (!isLikelyIncident(title, summary)) return null;
+  const relevanceOk = isLikelyIncident(title, summary);
+  const confidence = (row.confidence || "reported") as Confidence;
+
+  if (
+    !passesNewsGate({
+      mapEligible: false,
+      confidence,
+      sourceCount: Number(row.source_count) || 1,
+      trustWeight: Number(row.trust_weight) || 1,
+      relevanceOk,
+    })
+  ) {
+    return null;
+  }
 
   const url = row.source_url?.trim() || null;
-  // Skip demo seed URLs
   if (url?.startsWith("https://warnews.local/")) return null;
 
   return {
