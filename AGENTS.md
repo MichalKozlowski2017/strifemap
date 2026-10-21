@@ -16,7 +16,7 @@ Do not undo the decisions below unless Michał explicitly asks.
 
 - Product name: **Strife Map** (do not translate). Repo/folder stay `strifemap`.
 - Next.js app lives at `~/Sites/strifemap`.
-- Live: https://warnews-eight.vercel.app
+- Live: https://strifemap.vercel.app (extra alias: https://warnews-eight.vercel.app)
 - GitHub: https://github.com/MichalKozlowski2017/strifemap
 - One writer. Commit and push `main` (Vercel deploys from main).
 

@@ -4,7 +4,7 @@
  */
 import { chromium } from "playwright";
 
-const BASE = process.env.WN_BASE || "https://warnews-eight.vercel.app";
+const BASE = process.env.WN_BASE || "https://strifemap.vercel.app";
 const DATE = process.env.WN_DATE || "2026-10-21";
 
 const results = [];

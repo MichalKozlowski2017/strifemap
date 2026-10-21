@@ -5,7 +5,7 @@
 import { chromium } from "playwright";
 import { mkdirSync } from "fs";
 
-const BASE = process.env.WN_BASE || "https://warnews-eight.vercel.app";
+const BASE = process.env.WN_BASE || "https://strifemap.vercel.app";
 const OUT = "/tmp/wn-country-ux";
 mkdirSync(OUT, { recursive: true });
 
