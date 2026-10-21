@@ -18,10 +18,9 @@ export function NewsFront({
   const d = t(locale);
 
   if (items.length === 0) {
-    return <p className="text-base text-stone-400">{d.newsEmpty}</p>;
+    return <p className="text-base text-[var(--muted)]">{d.newsEmpty}</p>;
   }
 
-  // Prefer an item with a photo as lead when available
   const photoIdx = items.findIndex((i) => i.image_url);
   const ordered =
     photoIdx > 0
@@ -32,7 +31,7 @@ export function NewsFront({
 
   return (
     <div className="space-y-10">
-      <article className="border border-white/10 bg-black/25">
+      <article className="border border-[var(--border)] bg-[var(--surface)]">
         <NewsImage
           src={leadStory.image_url}
           alt={localizedTitle(leadStory, locale)}
@@ -40,17 +39,17 @@ export function NewsFront({
           className="w-full"
         />
         <div className="space-y-3 p-4 md:p-6">
-          <p className="text-[11px] uppercase tracking-widest text-stone-500">
+          <p className="text-[11px] uppercase tracking-widest text-[var(--muted-2)]">
             {formatTime(leadStory.occurred_at, locale)}
-            <span className="mx-1.5 text-stone-600">·</span>
+            <span className="mx-1.5">·</span>
             {leadStory.source_name}
-            <span className="mx-1.5 text-stone-600">·</span>
+            <span className="mx-1.5">·</span>
             {d.newsNotOnMap}
           </p>
-          <h2 className="font-[family-name:var(--font-display)] text-2xl leading-tight tracking-wide text-[#f3efe6] md:text-4xl">
+          <h2 className="font-[family-name:var(--font-display)] text-2xl leading-tight tracking-wide text-[var(--foreground)] md:text-4xl">
             {localizedTitle(leadStory, locale)}
           </h2>
-          <p className="max-w-3xl text-base leading-relaxed text-stone-300 md:text-lg">
+          <p className="max-w-3xl text-base leading-relaxed text-[var(--muted)] md:text-lg">
             {newsCopy(
               localizedSummary(leadStory, locale),
               leadStory.body,
@@ -63,7 +62,7 @@ export function NewsFront({
               href={leadStory.source_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center text-sm text-[#c4a35a] underline-offset-2 hover:underline"
+              className="inline-flex min-h-11 items-center text-sm text-[var(--accent)] underline-offset-2 hover:underline"
             >
               {d.newsReadSource}
             </a>
@@ -72,7 +71,7 @@ export function NewsFront({
       </article>
 
       {list.length > 0 ? (
-        <ul className="divide-y divide-white/10 border-t border-white/10">
+        <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
           {list.map((item) => {
             const title = localizedTitle(item, locale);
             const copy = newsCopy(
@@ -91,16 +90,16 @@ export function NewsFront({
                     className="rounded-sm"
                   />
                   <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-widest text-stone-500">
+                    <p className="text-[11px] uppercase tracking-widest text-[var(--muted-2)]">
                       {formatTime(item.occurred_at, locale)}
-                      <span className="mx-1.5 text-stone-600">·</span>
+                      <span className="mx-1.5">·</span>
                       {item.source_name}
                     </p>
-                    <h3 className="mt-1 text-lg font-medium leading-snug text-stone-100 md:text-xl">
+                    <h3 className="mt-1 text-lg font-medium leading-snug text-[var(--foreground)] md:text-xl">
                       {title}
                     </h3>
                     {copy ? (
-                      <p className="mt-2 text-sm leading-relaxed text-stone-400 md:text-[15px]">
+                      <p className="mt-2 text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">
                         {copy}
                       </p>
                     ) : null}
@@ -109,7 +108,7 @@ export function NewsFront({
                         href={item.source_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="mt-3 inline-flex min-h-11 items-center text-sm text-[#c4a35a] underline-offset-2 hover:underline"
+                        className="mt-3 inline-flex min-h-11 items-center text-sm text-[var(--accent)] underline-offset-2 hover:underline"
                       >
                         {d.newsReadSource}
                       </a>

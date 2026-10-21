@@ -40,8 +40,7 @@ export default async function HomePage({
   }));
 
   return (
-    <main className="min-h-screen">
-      <div className="wn-scanline" aria-hidden />
+    <main className="min-h-screen bg-[var(--background)]">
       <SiteHeader theaters={theaters} locale={locale} date={date} />
       <MapShell
         locale={locale}

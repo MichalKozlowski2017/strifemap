@@ -1,12 +1,11 @@
 import { NewsFront } from "@/components/news/news-front";
 import { SiteHeader } from "@/components/site-header";
-import { parseDateISO, todayISO } from "@/lib/dates";
+import { parseDateISO, todayISO, formatDisplayDate } from "@/lib/dates";
 import { getLatestMapDate } from "@/lib/geo/incidents";
 import { listTheaters } from "@/lib/db/queries";
 import { getLocale } from "@/lib/i18n/locale";
 import { t } from "@/lib/i18n/dictionary";
 import { getNewsForDay } from "@/lib/news/items";
-import { formatDisplayDate } from "@/lib/dates";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +25,7 @@ export default async function NewsPage({
   const items = await getNewsForDay({ date });
 
   return (
-    <main className="min-h-screen pb-16">
-      <div className="wn-scanline" aria-hidden />
+    <main className="min-h-screen bg-[var(--background)] pb-16">
       <SiteHeader
         theaters={theaters}
         locale={locale}
@@ -36,15 +34,15 @@ export default async function NewsPage({
       />
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6">
         <header className="mb-8 max-w-3xl">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[#c4a35a]">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
             {d.newsNotOnMap}
           </p>
-          <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-[#f3efe6] md:text-5xl">
+          <h1 className="mt-1 font-[family-name:var(--font-display)] text-3xl tracking-wide text-[var(--foreground)] md:text-5xl">
             {d.news}
           </h1>
-          <p className="mt-2 text-sm text-stone-400 md:text-base">
+          <p className="mt-2 text-sm text-[var(--muted)] md:text-base">
             {formatDisplayDate(date, locale)}
-            <span className="mx-2 text-stone-600">·</span>
+            <span className="mx-2 text-[var(--muted-2)]">·</span>
             {d.newsHint}
           </p>
         </header>

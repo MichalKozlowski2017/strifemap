@@ -1,11 +1,40 @@
 @import "tailwindcss";
 
-:root {
-  --background: #0c1117;
-  --foreground: #e8ebe6;
-  --brass: #c4a35a;
-  --panel: #121820;
-  --fog: rgba(196, 163, 90, 0.08);
+/* Dark (default): charcoal + warm off-white, muted brass accent */
+:root,
+html.dark {
+  color-scheme: dark;
+  --background: #1a1c1e;
+  --foreground: #ebe6dc;
+  --muted: #9a958c;
+  --muted-2: #6b6660;
+  --surface: #222528;
+  --surface-2: #2a2e32;
+  --border: rgba(235, 230, 220, 0.12);
+  --border-strong: rgba(196, 163, 90, 0.45);
+  --accent: #b89a5e;
+  --accent-soft: rgba(184, 154, 94, 0.12);
+  --header-bg: rgba(26, 28, 30, 0.94);
+  --map-legend: #c4bfb4;
+  --danger: #b91c1c;
+}
+
+/* Light: paper + ink */
+html.light {
+  color-scheme: light;
+  --background: #f4f1ea;
+  --foreground: #1c1a17;
+  --muted: #5c574f;
+  --muted-2: #8a847a;
+  --surface: #ffffff;
+  --surface-2: #ece7de;
+  --border: rgba(28, 26, 23, 0.12);
+  --border-strong: rgba(140, 110, 50, 0.4);
+  --accent: #8c6e32;
+  --accent-soft: rgba(140, 110, 50, 0.1);
+  --header-bg: rgba(244, 241, 234, 0.94);
+  --map-legend: #3a3630;
+  --danger: #9f1239;
 }
 
 @theme inline {
@@ -15,11 +44,13 @@
   --font-display: var(--font-display);
 }
 
+html {
+  background: var(--background);
+}
+
 body {
-  background:
-    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(196, 163, 90, 0.12), transparent 55%),
-    radial-gradient(ellipse 60% 40% at 100% 100%, rgba(45, 74, 62, 0.25), transparent 50%),
-    var(--background);
+  /* One flat field — no tiled image, no stacked bands */
+  background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body), system-ui, sans-serif;
   min-height: 100vh;
@@ -46,7 +77,6 @@ body {
   pointer-events: auto;
 }
 
-/* Invisible hover bridge: covers caret + offset gap between pin and bubble. */
 .wn-popup-bridge {
   position: relative;
 }
@@ -112,8 +142,8 @@ body {
 }
 
 .maplibregl-ctrl-group {
-  background: #121820 !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
   box-shadow: none !important;
 }
 
@@ -122,61 +152,16 @@ body {
 }
 
 .maplibregl-ctrl-group button + button {
-  border-top-color: rgba(255, 255, 255, 0.12) !important;
+  border-top-color: var(--border) !important;
 }
 
-.maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon,
-.maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+html.light .maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon,
+html.light .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
+  filter: none;
+  opacity: 0.75;
+}
+
+html.dark .maplibregl-ctrl button.maplibregl-ctrl-zoom-in .maplibregl-ctrl-icon,
+html.dark .maplibregl-ctrl button.maplibregl-ctrl-zoom-out .maplibregl-ctrl-icon {
   filter: invert(1) opacity(0.85);
-}
-
-@keyframes wn-fade-up {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes wn-scan {
-  0% {
-    transform: translateY(-100%);
-  }
-  100% {
-    transform: translateY(100vh);
-  }
-}
-
-.wn-fade-up {
-  animation: wn-fade-up 0.7s ease-out both;
-}
-
-.wn-fade-up-delay {
-  animation: wn-fade-up 0.8s ease-out 0.15s both;
-}
-
-.wn-scanline {
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  opacity: 0.04;
-}
-
-.wn-scanline::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 20%;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(196, 163, 90, 0.6),
-    transparent
-  );
-  animation: wn-scan 9s linear infinite;
 }

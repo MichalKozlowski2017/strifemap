@@ -31,20 +31,20 @@ export function LangSwitch({ locale }: { locale: Locale }) {
         onClick={() => setLocale("pl")}
         className={
           locale === "pl"
-            ? "text-[#c4a35a]"
-            : "text-stone-500 hover:text-stone-200"
+            ? "text-[var(--accent)]"
+            : "text-[var(--muted-2)] hover:text-[var(--foreground)]"
         }
       >
         PL
       </button>
-      <span className="text-stone-600">|</span>
+      <span className="text-[var(--muted-2)]">|</span>
       <button
         type="button"
         onClick={() => setLocale("en")}
         className={
           locale === "en"
-            ? "text-[#c4a35a]"
-            : "text-stone-500 hover:text-stone-200"
+            ? "text-[var(--accent)]"
+            : "text-[var(--muted-2)] hover:text-[var(--foreground)]"
         }
       >
         EN

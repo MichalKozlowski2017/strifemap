@@ -102,28 +102,28 @@ export default async function TheaterPage({
   const isHybrid = theater.slug === "europe-hybrid";
 
   return (
-    <main className="min-h-screen pb-10">
+    <main className="min-h-screen bg-[var(--background)] pb-10">
       <SiteHeader
         theaters={theaters}
         locale={locale}
         date={date}
         activeTheater={theater.slug}
       />
-      <div className="border-b border-white/10 bg-black/20 px-4 py-4 md:px-6">
+      <div className="border-b border-[var(--border)] bg-[var(--surface)] px-4 py-4 md:px-6">
         <div className="mx-auto max-w-7xl">
-          <p className="text-[11px] uppercase tracking-[0.28em] text-[#c4a35a]">
+          <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--accent)]">
             {d.theater}
           </p>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-wide text-[#f3efe6] md:text-4xl">
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-wide text-[var(--foreground)] md:text-4xl">
             {theaterName(theater, locale)}
           </h1>
-          <p className="mt-1 max-w-2xl text-sm text-stone-400">
+          <p className="mt-1 max-w-2xl text-sm text-[var(--muted)]">
             {locale === "en"
               ? theater.description_en
               : theater.description_pl}
           </p>
           {isHybrid && (
-            <p className="mt-3 border border-amber-700/40 bg-amber-950/30 px-3 py-2 text-sm text-amber-100">
+            <p className="mt-3 border border-[var(--border-strong)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--foreground)]">
               {locale === "pl"
                 ? "Ścieżka Europa / hybryda — sabotaż, cyber i infrastruktura krytyczna."
                 : "Europe / hybrid track — sabotage, cyber, and critical infrastructure."}

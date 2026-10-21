@@ -29,20 +29,20 @@ export function DateStepper({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 text-xs text-stone-300">
+    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
       <Link
         href={hrefFor(prev)}
-        className="inline-flex min-h-11 min-w-11 items-center justify-center border border-white/15 px-2 hover:border-[#c4a35a]/50 hover:text-[#c4a35a]"
+        className="inline-flex min-h-11 min-w-11 items-center justify-center border border-[var(--border)] px-2 hover:border-[var(--border-strong)] hover:text-[var(--accent)]"
         aria-label={d.prevDay}
       >
         ‹
       </Link>
-      <span className="min-w-[10.5rem] text-center text-sm font-medium tracking-wide text-[#f3efe6]">
+      <span className="min-w-[10.5rem] text-center text-sm font-medium tracking-wide text-[var(--foreground)]">
         {formatDisplayDate(date, locale)}
       </span>
       {nextDisabled ? (
         <span
-          className="inline-flex min-h-11 min-w-11 items-center justify-center border border-white/10 px-2 text-stone-600"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center border border-[var(--border)] px-2 text-[var(--muted-2)]"
           aria-disabled
         >
           ›
@@ -50,7 +50,7 @@ export function DateStepper({
       ) : (
         <Link
           href={hrefFor(next)}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center border border-white/15 px-2 hover:border-[#c4a35a]/50 hover:text-[#c4a35a]"
+          className="inline-flex min-h-11 min-w-11 items-center justify-center border border-[var(--border)] px-2 hover:border-[var(--border-strong)] hover:text-[var(--accent)]"
           aria-label={d.nextDay}
         >
           ›
@@ -59,7 +59,7 @@ export function DateStepper({
       {date !== today && (
         <Link
           href={hrefFor(today)}
-          className="ml-1 inline-flex min-h-11 items-center text-[11px] uppercase tracking-widest text-[#c4a35a] hover:underline"
+          className="ml-1 inline-flex min-h-11 items-center text-[11px] uppercase tracking-widest text-[var(--accent)] hover:underline"
         >
           {d.today}
         </Link>
