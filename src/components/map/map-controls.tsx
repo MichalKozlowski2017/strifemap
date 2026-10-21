@@ -4,14 +4,7 @@ import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { typeLabel } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
-import { countryDisplayName } from "@/lib/geo/country-names";
-import {
-  INCIDENT_TYPES,
-  layersToParam,
-  parseCountryIso,
-  parseLayers,
-} from "@/lib/map/params";
-import type { CountryDayChip } from "@/lib/geo/incidents";
+import { INCIDENT_TYPES, layersToParam, parseLayers } from "@/lib/map/params";
 import type { IncidentType } from "@/lib/types";
 
 const TYPE_COLORS: Record<IncidentType, string> = {
@@ -24,19 +17,17 @@ const TYPE_COLORS: Record<IncidentType, string> = {
   other: "#a8a29e",
 };
 
-/** Compact overlays: pin count on map; chips+layers can sit below the map on mobile. */
+/** Live badge + type layers. No country chips. */
 export function MapControls({
   locale,
   pinCount,
-  countries,
-  /** When true, only the live badge sits on the map (chips/layers rendered via `below`). */
+  /** When true, only the live badge sits on the map. */
   mapOnly = false,
-  /** When true, render chips + layers (for below-map strip). */
+  /** When true, render layers below the map (mobile). */
   belowMap = false,
 }: {
   locale: Locale;
   pinCount: number | null;
-  countries: CountryDayChip[];
   mapOnly?: boolean;
   belowMap?: boolean;
 }) {
@@ -45,7 +36,6 @@ export function MapControls({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const layers = parseLayers(searchParams.get("layers"));
-  const selected = parseCountryIso(searchParams.get("country"));
   const [layersOpen, setLayersOpen] = useState(false);
 
   const replaceParams = useCallback(
@@ -54,6 +44,7 @@ export function MapControls({
       mutate(params);
       params.delete("timeRange");
       params.delete("hours");
+      params.delete("country");
       const q = params.toString();
       router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
     },
@@ -71,48 +62,11 @@ export function MapControls({
     });
   };
 
-  const selectCountry = (iso: string | null) => {
-    replaceParams((p) => {
-      if (!iso) p.delete("country");
-      else p.set("country", iso);
-    });
-  };
-
   const liveBadge = (
     <div className="inline-flex items-center border border-[var(--border)] bg-[var(--surface)]/92 px-2 py-1 text-[10px] tabular-nums tracking-wide text-[var(--muted-2)] backdrop-blur-sm">
       {pinCount != null ? `${pinCount} · ${d.mapDayLive}` : d.mapDayLive}
     </div>
   );
-
-  const chips = countries.length > 0 ? (
-    <div
-      className="flex flex-wrap gap-1"
-      role="group"
-      aria-label={d.countriesToday}
-    >
-      {countries.map((c) => {
-        const on = selected === c.iso;
-        return (
-          <button
-            key={c.iso}
-            type="button"
-            onClick={() => selectCountry(on ? null : c.iso)}
-            className={`inline-flex min-h-9 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider transition ${
-              on
-                ? "bg-[var(--country-active-bg)] text-[var(--country-active-fg)]"
-                : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
-            }`}
-            aria-pressed={on}
-          >
-            <span className="font-medium tracking-normal normal-case">
-              {countryDisplayName(c.iso, locale)}
-            </span>
-            <span className="tabular-nums opacity-70">{c.incidentCount}</span>
-          </button>
-        );
-      })}
-    </div>
-  ) : null;
 
   const layersPanel = (
     <div className="border border-[var(--border)] bg-[var(--surface)]/92 backdrop-blur-sm">
@@ -166,7 +120,6 @@ export function MapControls({
         data-wn-map-chrome
         className="flex flex-col gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 md:hidden"
       >
-        {chips}
         {layersPanel}
       </div>
     );
@@ -183,18 +136,12 @@ export function MapControls({
     );
   }
 
-  // Desktop: compact stack on map (no second Wyczyść — clear lives on the card)
   return (
     <div
       data-wn-map-chrome
       className="pointer-events-auto absolute left-3 top-3 z-10 hidden max-w-[min(100%-1.5rem,28rem)] flex-col gap-2 md:left-4 md:top-4 md:flex"
     >
       {liveBadge}
-      {chips ? (
-        <div className="border border-[var(--border)] bg-[var(--surface)]/92 p-1 backdrop-blur-sm">
-          {chips}
-        </div>
-      ) : null}
       {layersPanel}
     </div>
   );

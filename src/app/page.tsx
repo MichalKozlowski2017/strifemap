@@ -1,11 +1,7 @@
 import { MapShell } from "@/components/map/map-shell";
 import { SiteHeader } from "@/components/site-header";
 import { parseDateISO, todayISO } from "@/lib/dates";
-import {
-  getLatestMapDate,
-  listCountriesWithIncidentsForDate,
-  listIncidentsForDate,
-} from "@/lib/geo/incidents";
+import { getLatestMapDate, listIncidentsForDate } from "@/lib/geo/incidents";
 import { getLocale } from "@/lib/i18n/locale";
 import { listTheaters } from "@/lib/db/queries";
 import { getNewsForDay } from "@/lib/news/items";
@@ -24,10 +20,9 @@ export default async function HomePage({
   const requested = params.date && parseDateISO(params.date) ? params.date : null;
   const date = requested ?? (await getLatestMapDate()) ?? todayISO();
 
-  const [rows, news, countries] = await Promise.all([
+  const [rows, news] = await Promise.all([
     listIncidentsForDate({ date, mapEligibleOnly: true }),
     getNewsForDay({ date }),
-    listCountriesWithIncidentsForDate({ date }),
   ]);
   const incidents = rows.map((r) => ({
     id: String(r.id),
@@ -56,7 +51,6 @@ export default async function HomePage({
         date={date}
         incidents={incidents}
         news={news}
-        countries={countries}
       />
     </main>
   );

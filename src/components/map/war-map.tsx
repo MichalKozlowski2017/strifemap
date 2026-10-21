@@ -48,9 +48,7 @@ type Props = {
   /** Types currently visible; omit / full set = all. */
   enabledTypes?: Set<IncidentType>;
   selectedId?: string | null;
-  selectedCountry?: string | null;
   onSelect?: (id: string | null) => void;
-  onSelectCountry?: (iso: string | null) => void;
   onPinCount?: (count: number | null) => void;
   initialViewState?: {
     longitude: number;
@@ -60,8 +58,6 @@ type Props = {
   className?: string;
   emptyLabel?: string;
 };
-
-const COUNTRIES_URL = "/geo/countries-110m.geojson";
 
 type HoverItem = {
   id: string;
@@ -171,22 +167,12 @@ function featuresAtPoint(
   return items;
 }
 
-function readCssColor(name: string, fallback: string): string {
-  if (typeof window === "undefined") return fallback;
-  const v = getComputedStyle(document.documentElement)
-    .getPropertyValue(name)
-    .trim();
-  return v || fallback;
-}
-
 export function WarMap({
   geojsonUrl,
   locale,
   enabledTypes,
   selectedId,
-  selectedCountry,
   onSelect,
-  onSelectCountry,
   onPinCount,
   initialViewState = { longitude: 25, latitude: 35, zoom: 2.2 },
   className,
@@ -206,37 +192,10 @@ export function WarMap({
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [pulseT, setPulseT] = useState(0);
-  const [countriesData, setCountriesData] =
-    useState<FeatureCollection | null>(null);
-  const fittedCountry = useRef<string | null>(null);
-  const [themeTick, setThemeTick] = useState(0);
 
   useEffect(() => {
     hoverRef.current = hover;
   }, [hover]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch(COUNTRIES_URL)
-      .then((r) => r.json())
-      .then((json) => {
-        if (!cancelled) setCountriesData(json);
-      })
-      .catch(() => {
-        if (!cancelled) setCountriesData(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  // Re-read CSS vars when theme class flips.
-  useEffect(() => {
-    const root = document.documentElement;
-    const obs = new MutationObserver(() => setThemeTick((n) => n + 1));
-    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
-    return () => obs.disconnect();
-  }, []);
 
   const clearLeaveTimer = useCallback(() => {
     if (leaveTimer.current) {
@@ -378,40 +337,6 @@ export function WarMap({
     map.on("resize", onView);
   }, [recomputeAnchor]);
 
-  // Frame selected country without fighting user pan after first fit.
-  useEffect(() => {
-    const map = mapRef.current?.getMap();
-    if (!map || !countriesData || !selectedCountry) {
-      if (!selectedCountry) fittedCountry.current = null;
-      return;
-    }
-    if (fittedCountry.current === selectedCountry) return;
-    const feature = countriesData.features.find(
-      (f) =>
-        String((f.properties as { iso?: string } | null)?.iso || "").toUpperCase() ===
-        selectedCountry.toUpperCase(),
-    );
-    if (!feature?.geometry) return;
-    const bounds = new maplibregl.LngLatBounds();
-    const extend = (coords: unknown): void => {
-      if (!Array.isArray(coords)) return;
-      if (typeof coords[0] === "number" && typeof coords[1] === "number") {
-        bounds.extend([coords[0] as number, coords[1] as number]);
-        return;
-      }
-      for (const c of coords) extend(c);
-    };
-    extend(
-      feature.geometry.type === "Polygon" ||
-        feature.geometry.type === "MultiPolygon"
-        ? feature.geometry.coordinates
-        : null,
-    );
-    if (!Number.isFinite(bounds.getWest())) return;
-    map.fitBounds(bounds, { padding: 48, maxZoom: 6.5, duration: 600 });
-    fittedCountry.current = selectedCountry;
-  }, [selectedCountry, countriesData]);
-
   useEffect(() => {
     if (!hover) return;
     const root = document.querySelector(".wn-hover-popup");
@@ -505,7 +430,6 @@ export function WarMap({
 
   const onClick = useCallback(
     (e: MapLayerMouseEvent) => {
-      // Ignore clicks that started on overlay chrome (controls / card).
       const orig = e.originalEvent as MouseEvent | undefined;
       const target = orig?.target as HTMLElement | null | undefined;
       if (target?.closest?.("[data-wn-map-chrome]")) return;
@@ -520,45 +444,16 @@ export function WarMap({
         const id = String(
           (pin.properties as MapIncidentFeatureProps).id ?? "",
         );
-        if (id) {
-          onSelect?.(id);
-          return;
-        }
+        if (id) onSelect?.(id);
       }
-      const country = features.find((f) => f.layer?.id === "country-fill");
-      if (country?.properties?.iso) {
-        const iso = String(country.properties.iso).toUpperCase();
-        onSelectCountry?.(iso);
-        return;
-      }
-      // Empty map (or cluster) → clear country
-      if (!pin) onSelectCountry?.(null);
     },
-    [onSelect, onSelectCountry],
+    [onSelect],
   );
 
   const interactiveLayerIds = useMemo(
-    () => [
-      "clusters",
-      "unclustered-point",
-      "selected-point",
-      "fresh-pulse",
-      "country-fill",
-    ],
+    () => ["clusters", "unclustered-point", "selected-point", "fresh-pulse"],
     [],
   );
-
-  const countryFill = readCssColor("--country-fill", "rgba(184,154,94,0.08)");
-  const countryFillActive = readCssColor(
-    "--country-fill-active",
-    "rgba(184,154,94,0.28)",
-  );
-  const countryLine = readCssColor("--country-line", "rgba(184,154,94,0.55)");
-  const countryLineActive = readCssColor(
-    "--country-line-active",
-    "rgba(235,210,140,0.9)",
-  );
-  void themeTick; // recompute colors when theme class changes
 
   const empty =
     filtered &&
@@ -608,48 +503,6 @@ export function WarMap({
         attributionControl={false}
       >
         <NavigationControl position="bottom-right" showCompass={false} />
-        {countriesData && (
-          <Source id="countries" type="geojson" data={countriesData}>
-            <Layer
-              id="country-fill"
-              type="fill"
-              paint={{
-                "fill-color": selectedCountry
-                  ? [
-                      "case",
-                      ["==", ["get", "iso"], selectedCountry],
-                      countryFillActive,
-                      countryFill,
-                    ]
-                  : countryFill,
-                "fill-opacity": 1,
-              }}
-            />
-            <Layer
-              id="country-line"
-              type="line"
-              paint={{
-                "line-color": selectedCountry
-                  ? [
-                      "case",
-                      ["==", ["get", "iso"], selectedCountry],
-                      countryLineActive,
-                      countryLine,
-                    ]
-                  : countryLine,
-                "line-width": selectedCountry
-                  ? [
-                      "case",
-                      ["==", ["get", "iso"], selectedCountry],
-                      1.6,
-                      0.4,
-                    ]
-                  : 0.4,
-                "line-opacity": 0.9,
-              }}
-            />
-          </Source>
-        )}
         {filtered && (
           <Source
             id="incidents"

@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { CountryCard } from "@/components/country/country-card";
+import { useEffect, useMemo, useState } from "react";
 import { MapControls } from "@/components/map/map-controls";
 import { NewsWall } from "@/components/news/news-wall";
 import { WarMap } from "@/components/map/war-map";
@@ -13,8 +12,6 @@ import {
 } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { formatTime } from "@/lib/dates";
-import { countryDisplayName } from "@/lib/geo/country-names";
-import type { CountryDayChip } from "@/lib/geo/incidents";
 import type { DayNewsCard } from "@/lib/news/items";
 import type { Confidence, IncidentType } from "@/lib/types";
 
@@ -40,15 +37,6 @@ type SourceRow = {
   source_name?: string | null;
 };
 
-function subscribeMq(cb: () => void) {
-  const mq = window.matchMedia("(max-width: 1023px)");
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-}
-function isMobileMq() {
-  return window.matchMedia("(max-width: 1023px)").matches;
-}
-
 function plIncidentCount(n: number): string {
   if (n === 1) return "1 incydent";
   const mod10 = n % 10;
@@ -64,9 +52,6 @@ type Props = {
   date: string;
   geojsonUrl: string;
   enabledTypes?: Set<IncidentType>;
-  selectedCountry?: string | null;
-  onSelectCountry?: (iso: string | null) => void;
-  countries?: CountryDayChip[];
   incidents: DayIncidentCard[];
   news?: DayNewsCard[];
   briefTitle?: string | null;
@@ -80,9 +65,6 @@ export function DayReader({
   date,
   geojsonUrl,
   enabledTypes,
-  selectedCountry = null,
-  onSelectCountry,
-  countries = [],
   incidents,
   news = [],
   briefTitle,
@@ -93,38 +75,12 @@ export function DayReader({
   const d = t(locale);
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinCount, setPinCount] = useState<number | null>(null);
-  const countryCardRef = useRef<HTMLDivElement>(null);
-  const isMobile = useSyncExternalStore(subscribeMq, isMobileMq, () => false);
   const [sourcesById, setSourcesById] = useState<
     Record<string, SourceRow[] | "loading">
   >({});
 
-  const countryIncidents = useMemo(() => {
-    if (!selectedCountry) return [];
-    return incidents.filter(
-      (i) => i.country_iso?.toUpperCase() === selectedCountry,
-    );
-  }, [incidents, selectedCountry]);
-
-  const countryNews = useMemo(() => {
-    if (!selectedCountry) return [];
-    return news.filter((n) => n.country_iso?.toUpperCase() === selectedCountry);
-  }, [news, selectedCountry]);
-
-  /** Main column follows the selected country when set. */
-  const listIncidents = selectedCountry ? countryIncidents : incidents;
-  const countryScoped = Boolean(selectedCountry);
-
-  useEffect(() => {
-    if (!selectedCountry || !isMobile) return;
-    countryCardRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-  }, [selectedCountry, isMobile]);
-
   const activeOpenId =
-    openId && listIncidents.some((i) => i.id === openId) ? openId : null;
+    openId && incidents.some((i) => i.id === openId) ? openId : null;
 
   useEffect(() => {
     if (!activeOpenId) return;
@@ -158,33 +114,10 @@ export function DayReader({
   }, [openId]);
 
   const synthesized = useMemo(() => {
-    // Country selection always owns the brief (ignore theater sitrep).
-    if (countryScoped) {
-      const n = listIncidents.length;
-      const name = countryDisplayName(selectedCountry!, locale);
-      if (n === 0) {
-        if (countryNews.length === 0) return null;
-        return {
-          title: name,
-          body:
-            locale === "pl"
-              ? `${countryNews.length === 1 ? "1 wiadomość" : `${countryNews.length} wiadomości`} poza mapą`
-              : `${countryNews.length} off-map news item${countryNews.length === 1 ? "" : "s"}`,
-        };
-      }
-      const top = listIncidents.slice(0, 3).map((i) => localizedTitle(i, locale));
-      return {
-        title:
-          locale === "pl"
-            ? `${plIncidentCount(n)} — ${name}`
-            : `${n} mapped incident${n === 1 ? "" : "s"} — ${name}`,
-        body: top.join(" · "),
-      };
-    }
     if (briefTitle || briefBody) return null;
-    if (listIncidents.length === 0) return null;
-    const n = listIncidents.length;
-    const top = listIncidents.slice(0, 3).map((i) => localizedTitle(i, locale));
+    if (incidents.length === 0) return null;
+    const n = incidents.length;
+    const top = incidents.slice(0, 3).map((i) => localizedTitle(i, locale));
     return {
       title:
         locale === "pl"
@@ -192,15 +125,7 @@ export function DayReader({
           : `${n} mapped incident${n === 1 ? "" : "s"}`,
       body: top.join(" · "),
     };
-  }, [
-    briefTitle,
-    briefBody,
-    countryScoped,
-    countryNews.length,
-    listIncidents,
-    locale,
-    selectedCountry,
-  ]);
+  }, [briefTitle, briefBody, incidents, locale]);
 
   function toggle(id: string) {
     setOpenId((prev) => {
@@ -215,13 +140,13 @@ export function DayReader({
   }
 
   const incidentList =
-    listIncidents.length === 0 ? null : (
+    incidents.length === 0 ? null : (
       <section>
         <h2 className="mb-4 font-[family-name:var(--font-display)] text-2xl tracking-wide text-[var(--accent)]">
           {d.incidents}
         </h2>
         <ul className="space-y-3">
-          {listIncidents.map((incident) => {
+          {incidents.map((incident) => {
             const open = activeOpenId === incident.id;
             const title = localizedTitle(incident, locale);
             const summary = localizedSummary(incident, locale);
@@ -328,20 +253,7 @@ export function DayReader({
       </section>
     );
 
-  const countryCard =
-    selectedCountry && onSelectCountry ? (
-      <CountryCard
-        locale={locale}
-        date={date}
-        iso={selectedCountry}
-        news={countryNews}
-        onClear={() => onSelectCountry(null)}
-      />
-    ) : null;
-
-  const briefEmpty = countryScoped
-    ? listIncidents.length === 0 && countryNews.length === 0
-    : listIncidents.length === 0;
+  const briefEmpty = incidents.length === 0;
 
   return (
     <div className="flex flex-col">
@@ -351,49 +263,21 @@ export function DayReader({
           locale={locale}
           enabledTypes={enabledTypes}
           selectedId={activeOpenId}
-          selectedCountry={selectedCountry}
           onSelect={setOpenId}
-          onSelectCountry={onSelectCountry}
           onPinCount={setPinCount}
           initialViewState={mapView}
           className="absolute inset-0 h-full w-full"
           emptyLabel={d.mapEmptyRange}
         />
-        {/* Mobile: tiny live badge only — map stays tappable */}
         <div className="md:hidden">
-          <MapControls
-            locale={locale}
-            pinCount={pinCount}
-            countries={countries}
-            mapOnly
-          />
+          <MapControls locale={locale} pinCount={pinCount} mapOnly />
         </div>
-        {/* Desktop: chips + layers on map */}
         <div className="hidden md:block">
-          <MapControls
-            locale={locale}
-            pinCount={pinCount}
-            countries={countries}
-          />
+          <MapControls locale={locale} pinCount={pinCount} />
         </div>
       </section>
 
-      {/* Mobile chips + layers under the map */}
-      <MapControls
-        locale={locale}
-        pinCount={pinCount}
-        countries={countries}
-        belowMap
-      />
-
-      {countryCard && isMobile ? (
-        <div
-          ref={countryCardRef}
-          className="border-b border-[var(--border)] px-4 py-4"
-        >
-          {countryCard}
-        </div>
-      ) : null}
+      <MapControls locale={locale} pinCount={pinCount} belowMap />
 
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6">
         <section className="mb-10 max-w-3xl">
@@ -402,19 +286,8 @@ export function DayReader({
           </h2>
           {briefEmpty ? (
             <p className="mt-3 text-sm text-[var(--muted)]">
-              {countryScoped ? d.countryEmpty : `${d.emptyDay} ${d.emptyDayHint}`}
+              {`${d.emptyDay} ${d.emptyDayHint}`}
             </p>
-          ) : countryScoped ? (
-            <article className="mt-3 space-y-2">
-              <h3 className="text-xl font-medium text-[var(--foreground)]">
-                {synthesized?.title}
-              </h3>
-              {synthesized?.body ? (
-                <p className="leading-relaxed text-[var(--muted)]">
-                  {synthesized.body}
-                </p>
-              ) : null}
-            </article>
           ) : (
             <article className="mt-3 space-y-2">
               <h3 className="text-xl font-medium text-[var(--foreground)]">
@@ -438,26 +311,20 @@ export function DayReader({
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
           {incidentList}
-          {countryCard && !isMobile ? (
-            <div className="lg:sticky lg:top-28">{countryCard}</div>
-          ) : !countryCard ? (
-            <NewsWall
-              locale={locale}
-              date={date}
-              items={news}
-              className="hidden lg:block lg:sticky lg:top-28"
-            />
-          ) : null}
-        </div>
-
-        {!selectedCountry ? (
           <NewsWall
             locale={locale}
             date={date}
             items={news}
-            className="mt-12 border-t border-[var(--border)] pt-10 lg:hidden"
+            className="hidden lg:block lg:sticky lg:top-28"
           />
-        ) : null}
+        </div>
+
+        <NewsWall
+          locale={locale}
+          date={date}
+          items={news}
+          className="mt-12 border-t border-[var(--border)] pt-10 lg:hidden"
+        />
       </div>
     </div>
   );

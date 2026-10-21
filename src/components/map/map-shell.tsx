@@ -1,15 +1,10 @@
 "use client";
 
-import { Suspense, useCallback, useMemo } from "react";
+import { Suspense, useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { DayReader, type DayIncidentCard } from "@/components/day/day-reader";
 import type { Locale } from "@/lib/i18n/dictionary";
-import type { CountryDayChip } from "@/lib/geo/incidents";
-import {
-  buildGeojsonUrl,
-  parseCountryIso,
-  parseLayers,
-} from "@/lib/map/params";
+import { buildGeojsonUrl, parseLayers } from "@/lib/map/params";
 import type { DayNewsCard } from "@/lib/news/items";
 
 function MapShellInner({
@@ -18,7 +13,6 @@ function MapShellInner({
   theaterSlug,
   incidents,
   news,
-  countries,
   briefTitle,
   briefBody,
   briefPoints,
@@ -29,7 +23,6 @@ function MapShellInner({
   theaterSlug?: string;
   incidents: DayIncidentCard[];
   news?: DayNewsCard[];
-  countries: CountryDayChip[];
   briefTitle?: string | null;
   briefBody?: string | null;
   briefPoints?: string[];
@@ -42,24 +35,21 @@ function MapShellInner({
     () => parseLayers(searchParams.get("layers")),
     [searchParams],
   );
-  const selectedCountry = parseCountryIso(searchParams.get("country"));
   const geojsonUrl = useMemo(
     () => buildGeojsonUrl({ date, theaterSlug }),
     [date, theaterSlug],
   );
 
-  const setCountry = useCallback(
-    (iso: string | null) => {
-      const params = new URLSearchParams(searchParams.toString());
-      params.delete("timeRange");
-      params.delete("hours");
-      if (!iso) params.delete("country");
-      else params.set("country", iso);
-      const q = params.toString();
-      router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
-    },
-    [pathname, router, searchParams],
-  );
+  // Drop legacy ?country= so it never drives UI or polygon work.
+  useEffect(() => {
+    if (!searchParams.has("country")) return;
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("country");
+    params.delete("timeRange");
+    params.delete("hours");
+    const q = params.toString();
+    router.replace(q ? `${pathname}?${q}` : pathname, { scroll: false });
+  }, [pathname, router, searchParams]);
 
   return (
     <DayReader
@@ -68,9 +58,6 @@ function MapShellInner({
       date={date}
       geojsonUrl={geojsonUrl}
       enabledTypes={enabledTypes}
-      selectedCountry={selectedCountry}
-      onSelectCountry={setCountry}
-      countries={countries}
       incidents={incidents}
       news={news}
       briefTitle={briefTitle}
@@ -87,13 +74,11 @@ export function MapShell(props: {
   theaterSlug?: string;
   incidents: DayIncidentCard[];
   news?: DayNewsCard[];
-  countries?: CountryDayChip[];
   briefTitle?: string | null;
   briefBody?: string | null;
   briefPoints?: string[];
   mapView?: { longitude: number; latitude: number; zoom: number };
 }) {
-  const { countries = [], ...rest } = props;
   return (
     <Suspense
       fallback={
@@ -102,7 +87,7 @@ export function MapShell(props: {
         </div>
       }
     >
-      <MapShellInner {...rest} countries={countries} />
+      <MapShellInner {...props} />
     </Suspense>
   );
 }

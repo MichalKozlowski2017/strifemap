@@ -4,7 +4,6 @@ import { SiteHeader } from "@/components/site-header";
 import { parseDateISO, todayISO } from "@/lib/dates";
 import {
   getLatestMapDate,
-  listCountriesWithIncidentsForDate,
   listIncidentsForDate,
 } from "@/lib/geo/incidents";
 import { getTheaterBySlug, listTheaters } from "@/lib/db/queries";
@@ -45,7 +44,7 @@ export default async function TheaterPage({
   const date =
     requested ?? (await getLatestMapDate(theater.slug)) ?? todayISO();
 
-  const [theaters, rows, news, countries] = await Promise.all([
+  const [theaters, rows, news] = await Promise.all([
     listTheaters(),
     listIncidentsForDate({
       date,
@@ -53,10 +52,6 @@ export default async function TheaterPage({
       mapEligibleOnly: true,
     }),
     getNewsForDay({ date, theaterSlug: theater.slug }),
-    listCountriesWithIncidentsForDate({
-      date,
-      theaterSlug: theater.slug,
-    }),
   ]);
 
   // Day-scoped sitrep only — never fall back to another day's brief.
@@ -146,7 +141,6 @@ export default async function TheaterPage({
         theaterSlug={theater.slug}
         incidents={incidents}
         news={news}
-        countries={countries}
         briefTitle={briefTitle}
         briefBody={briefBody ?? emptySitrep}
         briefPoints={briefPoints}
