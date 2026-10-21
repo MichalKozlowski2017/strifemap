@@ -26,6 +26,22 @@ const MERGE_TITLE_THRESHOLD = 0.55;
 const MERGE_DISTANCE_KM = 50;
 /** Cap body chars sent to the model (token savings). */
 const EXTRACT_BODY_CHARS = 1_800;
+/** Drop absurd model dates (archive reprints / hallucinations). */
+const OCCURRED_MAX_PAST_MS = 14 * 24 * 60 * 60 * 1000;
+const OCCURRED_MAX_FUTURE_MS = 6 * 60 * 60 * 1000;
+
+function resolveOccurredAt(
+  raw: string | null | undefined,
+  fallbackIso: string,
+): string {
+  if (!raw || Number.isNaN(Date.parse(raw))) return fallbackIso;
+  const t = new Date(raw).getTime();
+  const now = Date.now();
+  if (t > now + OCCURRED_MAX_FUTURE_MS || t < now - OCCURRED_MAX_PAST_MS) {
+    return fallbackIso;
+  }
+  return new Date(t).toISOString();
+}
 
 const SYSTEM = `You extract structured conflict/security incidents from news items.
 Return one JSON object. Do not invent facts.
@@ -371,10 +387,7 @@ export async function extractIncidents(limit?: number): Promise<{
       }
 
       const incidentId = newId();
-      const occurred =
-        data.occurred_at && !Number.isNaN(Date.parse(data.occurred_at))
-          ? new Date(data.occurred_at).toISOString()
-          : nowIso();
+      const occurred = resolveOccurredAt(data.occurred_at, nowIso());
       const sourceCount = 1;
       const mapEligible = computeMapEligible({
         confidence: data.confidence,

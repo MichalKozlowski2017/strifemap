@@ -35,8 +35,10 @@ export function computeMapEligible(input: {
 }
 
 /**
- * Auto-approve onto map only when strong.
- * Never auto-publish; low-confidence stays pending for panel.
+ * Auto-approve onto the public map when computeMapEligible already passed.
+ * Unverified stays pending for panel. Reported/confirmed with coords +
+ * trust/source bar become pins (otherwise real days collapse to 0–1 pins).
+ * Never auto-sets status to published.
  */
 export function autoMapStatus(input: {
   mapEligible: boolean;
@@ -45,9 +47,9 @@ export function autoMapStatus(input: {
   trustWeight: number;
 }): "approved" | "pending" {
   if (!input.mapEligible) return "pending";
-  if (input.confidence !== "confirmed") return "pending";
-  if (input.sourceCount >= 2 || input.trustWeight >= 1.2) return "approved";
-  return "pending";
+  if (input.confidence === "unverified") return "pending";
+  // mapEligible already enforced trust/source floors for reported/confirmed
+  return "approved";
 }
 
 /** Public News feed: conflict-relevant non-pins with a minimum trust bar. */

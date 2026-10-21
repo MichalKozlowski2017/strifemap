@@ -5,9 +5,13 @@ export const EXTRACT_RUN_API_CAP = Number(
   process.env.EXTRACT_RUN_API_CAP ?? 20,
 );
 
-/** Max OpenAI extract calls per UTC day (sum across runs). */
+/**
+ * Max OpenAI extract calls per UTC day (sum across runs).
+ * Crons fire every 2h (≤12/day); 80 exhausted by morning and left
+ * afternoon map candidates stuck pending — keep headroom for the full day.
+ */
 export const EXTRACT_DAILY_API_CEILING = Number(
-  process.env.EXTRACT_DAILY_API_CEILING ?? 80,
+  process.env.EXTRACT_DAILY_API_CEILING ?? 200,
 );
 
 /** How many pending rows to triage (cheap) before picking API candidates. */

@@ -118,12 +118,28 @@ export function DayReader({
   const synthesized = useMemo(() => {
     if (briefTitle || briefBody) return null;
     if (incidents.length === 0) return null;
+    const n = incidents.length;
     const top = incidents.slice(0, 3).map((i) => localizedTitle(i, locale));
+    const plCount =
+      n === 1
+        ? "1 incydent"
+        : (() => {
+            const mod10 = n % 10;
+            const mod100 = n % 100;
+            if (
+              mod10 >= 2 &&
+              mod10 <= 4 &&
+              !(mod100 >= 12 && mod100 <= 14)
+            ) {
+              return `${n} incydenty`;
+            }
+            return `${n} incydentów`;
+          })();
     return {
       title:
         locale === "pl"
-          ? `${incidents.length} incydentów na mapie`
-          : `${incidents.length} mapped incidents`,
+          ? `${plCount} na mapie`
+          : `${n} mapped incident${n === 1 ? "" : "s"}`,
       body: top.join(" · "),
     };
   }, [briefTitle, briefBody, incidents, locale]);
