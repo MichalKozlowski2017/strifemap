@@ -2,7 +2,10 @@ import Link from "next/link";
 import { NewsImage } from "@/components/news/news-image";
 import { localizedTitle } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
-import type { DayNewsCard } from "@/lib/news/items";
+import {
+  articleSummaryForLocale,
+  type DayNewsCard,
+} from "@/lib/news/items";
 
 /** Day news wall — real images only; thumb/title → article, separate source link. */
 export function NewsWall({
@@ -41,6 +44,7 @@ export function NewsWall({
           {shown.map((item) => {
             const articleHref = `/news/${item.id}?date=${date}`;
             const title = localizedTitle(item, locale);
+            const copy = articleSummaryForLocale(item, locale);
             return (
               <li
                 key={item.id}
@@ -65,6 +69,11 @@ export function NewsWall({
                         {title}
                       </span>
                     </Link>
+                    {copy ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">
+                        {copy}
+                      </p>
+                    ) : null}
                     {item.source_url ? (
                       <a
                         href={item.source_url}

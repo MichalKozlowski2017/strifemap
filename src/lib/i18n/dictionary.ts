@@ -27,7 +27,7 @@ export const dict = {
     news: "Wiadomości",
     newsNotOnMap: "nie na mapie",
     newsHint:
-      "Doniesienia konfliktowe bez pinezki — bez współrzędnych, analizy i komunikaty.",
+      "Doniesienia dnia z foto — w tym incydenty z mapy (lista incydentów zostaje).",
     newsEmpty: "Brak wiadomości na ten dzień.",
     newsReadSource: "Czytaj źródło →",
     newsOpenDay: "Wszystkie wiadomości dnia →",
@@ -89,7 +89,7 @@ export const dict = {
     news: "News",
     newsNotOnMap: "not on map",
     newsHint:
-      "Conflict reports without a map pin — no coordinates, analysis, and statements.",
+      "Day reports with photos — including mapped incidents (incident list stays).",
     newsEmpty: "No news for this day.",
     newsReadSource: "Read source →",
     newsOpenDay: "All news for this day →",

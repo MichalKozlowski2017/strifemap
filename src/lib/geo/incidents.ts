@@ -303,6 +303,94 @@ export async function listNewsForDate(options: {
   return JSON.parse(JSON.stringify(result.rows)) as NewsItemRow[];
 }
 
+/**
+ * Map-eligible incidents for the News feed (same day shape as listNewsForDate).
+ * Caller must require an image and dedupe against non-map news.
+ */
+export async function listMapIncidentsForNewsDate(options: {
+  date: string;
+  theaterSlug?: string;
+  limit?: number;
+}): Promise<NewsItemRow[]> {
+  const bounds = dayBoundsISO(options.date);
+  if (!bounds) return [];
+
+  const db = getDb();
+  const args: (string | number)[] = [bounds.start, bounds.end];
+  const clauses = [
+    "i.occurred_at >= ?",
+    "i.occurred_at <= ?",
+    "i.map_eligible = 1",
+    "i.status IN ('approved', 'published')",
+    "i.lat IS NOT NULL AND i.lng IS NOT NULL",
+  ];
+
+  if (options.theaterSlug) {
+    clauses.push("t.slug = ?");
+    args.push(options.theaterSlug);
+  }
+
+  const limit = options.limit ?? 40;
+  args.push(limit);
+
+  const result = await db.execute({
+    sql: `
+      SELECT i.id, i.occurred_at, i.title, i.summary,
+             i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
+             i.confidence, i.country_iso,
+             i.article_summary_pl, i.article_summary_en,
+             t.slug AS theater_slug,
+             COALESCE(i.image_url, (
+               SELECT r.image_url FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               WHERE isrc.incident_id = i.id AND r.image_url IS NOT NULL
+               LIMIT 1
+             )) AS image_url,
+             (
+               SELECT r.body FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               WHERE isrc.incident_id = i.id
+               ORDER BY length(COALESCE(r.body,'')) DESC
+               LIMIT 1
+             ) AS body,
+             (
+               SELECT s.name FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC
+               LIMIT 1
+             ) AS source_name,
+             (
+               SELECT r.url FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC
+               LIMIT 1
+             ) AS source_url,
+             (
+               SELECT COALESCE(MAX(s.trust_weight), 1.0) FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+             ) AS trust_weight,
+             (
+               SELECT COUNT(*) FROM incident_sources isrc
+               WHERE isrc.incident_id = i.id
+             ) AS source_count
+      FROM incidents i
+      JOIN theaters t ON t.id = i.theater_id
+      WHERE ${clauses.join(" AND ")}
+      ORDER BY i.occurred_at DESC
+      LIMIT ?
+    `,
+    args,
+  });
+
+  return JSON.parse(JSON.stringify(result.rows)) as NewsItemRow[];
+}
+
 export async function getIncidentWithSources(id: string) {
   const db = getDb();
   const inc = await db.execute({

@@ -46,8 +46,12 @@ export function NewsFront({
             {formatTime(leadStory.occurred_at, locale)}
             <span className="mx-1.5">·</span>
             {leadStory.source_name}
-            <span className="mx-1.5">·</span>
-            {d.newsNotOnMap}
+            {!leadStory.on_map ? (
+              <>
+                <span className="mx-1.5">·</span>
+                {d.newsNotOnMap}
+              </>
+            ) : null}
           </p>
           <h2 className="font-[family-name:var(--font-display)] text-2xl leading-tight tracking-wide text-[var(--foreground)] md:text-4xl">
             <Link

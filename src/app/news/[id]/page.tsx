@@ -67,8 +67,12 @@ export default async function NewsArticlePage({
             {formatTime(item.occurred_at, locale)}
             <span className="mx-1.5">·</span>
             {item.source_name}
-            <span className="mx-1.5">·</span>
-            {d.newsNotOnMap}
+            {!item.on_map ? (
+              <>
+                <span className="mx-1.5">·</span>
+                {d.newsNotOnMap}
+              </>
+            ) : null}
           </p>
           <h1 className="font-[family-name:var(--font-display)] text-3xl leading-tight tracking-wide text-[var(--foreground)] md:text-4xl">
             {title}
