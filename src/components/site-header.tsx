@@ -30,7 +30,7 @@ export function SiteHeader({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href={`/?date=${date}`} className="group min-w-0">
             <p className="font-[family-name:var(--font-display)] text-2xl tracking-[0.08em] text-[var(--foreground)] md:text-3xl">
-              WAR NEWS
+              {d.brand}
             </p>
             <p className="text-[10px] uppercase tracking-[0.28em] text-[var(--accent)]">
               {d.tagline}

@@ -17,7 +17,7 @@ const body = Libre_Franklin({
 });
 
 export const metadata: Metadata = {
-  title: "War News — conflict intelligence",
+  title: "Strife Map",
   description:
     "Global conflict intelligence hub: theaters, map incidents, AI sitreps.",
 };

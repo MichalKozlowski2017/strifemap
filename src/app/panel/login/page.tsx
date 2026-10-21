@@ -29,7 +29,7 @@ export default async function PanelLoginPage({
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm border border-white/10 bg-black/30 p-6">
         <p className="font-[family-name:var(--font-display)] text-2xl tracking-[0.08em] text-[#f3efe6]">
-          WAR NEWS
+          {d.brand}
         </p>
         <h1 className="mt-4 text-lg font-medium text-[#c4a35a]">{d.panelLogin}</h1>
         <p className="mt-1 text-sm text-stone-400">{d.panelLoginHint}</p>

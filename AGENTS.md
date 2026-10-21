@@ -8,12 +8,13 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# War News — agent rules
+# Strife Map — agent rules
 
 Do not undo the decisions below unless Michał explicitly asks.
 
 ## App & git
 
+- Product name: **Strife Map** (do not translate). Repo/folder stay `warnews`.
 - Next.js app lives at `~/Sites/warnews`.
 - Live: https://warnews-eight.vercel.app
 - GitHub: https://github.com/MichalKozlowski2017/warnews

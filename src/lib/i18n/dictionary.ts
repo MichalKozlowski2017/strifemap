@@ -4,6 +4,8 @@ export const LOCALE_COOKIE = "wn_lang";
 
 export const dict = {
   pl: {
+    /** Product wordmark — not translated. Oswald header shows this as-is. */
+    brand: "STRIFE MAP",
     tagline: "Wywiad konfliktowy",
     panel: "Panel",
     panelLogin: "Logowanie do panelu",
@@ -66,6 +68,7 @@ export const dict = {
     },
   },
   en: {
+    brand: "STRIFE MAP",
     tagline: "Conflict intelligence",
     panel: "Panel",
     panelLogin: "Panel sign-in",

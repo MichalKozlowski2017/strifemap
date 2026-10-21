@@ -1,14 +1,14 @@
 ---
 name: warnews-ui
 description: >-
-  Use when changing War News UI — map, pins, cluster popup, incident accordion,
+  Use when changing Strife Map UI — map, pins, cluster popup, incident accordion,
   news wall, article view, light/dark, Polish/English, desktop or mobile. A short
   visual checklist. Not a new identity and not a product-rules file.
 ---
 
-# War News UI checklist
+# Strife Map UI checklist
 
-Product rules live in **repo-root `AGENTS.md`** (from this file: `../../../AGENTS.md`). This skill is only how to check a UI change before calling it done.
+Product rules live in **repo-root `AGENTS.md`** (from this file: `../../../AGENTS.md`). This skill is only how to check a UI change before calling it done. Product name is Strife Map; skill path stays `warnews-ui`.
 
 ## Before done
 

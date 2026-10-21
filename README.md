@@ -1,4 +1,4 @@
-# War News
+# Strife Map
 
 Global conflict intelligence hub: **theaters → incidents on a map → AI briefs**.
 
