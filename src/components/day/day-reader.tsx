@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CountryCard } from "@/components/country/country-card";
 import { MapControls } from "@/components/map/map-controls";
 import { NewsWall } from "@/components/news/news-wall";
@@ -39,6 +39,15 @@ type SourceRow = {
   source_name?: string | null;
 };
 
+function subscribeMq(cb: () => void) {
+  const mq = window.matchMedia("(max-width: 1023px)");
+  mq.addEventListener("change", cb);
+  return () => mq.removeEventListener("change", cb);
+}
+function isMobileMq() {
+  return window.matchMedia("(max-width: 1023px)").matches;
+}
+
 type Props = {
   locale: Locale;
   date: string;
@@ -74,6 +83,7 @@ export function DayReader({
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinCount, setPinCount] = useState<number | null>(null);
   const countryCardRef = useRef<HTMLDivElement>(null);
+  const isMobile = useSyncExternalStore(subscribeMq, isMobileMq, () => false);
   const [sourcesById, setSourcesById] = useState<
     Record<string, SourceRow[] | "loading">
   >({});
@@ -91,15 +101,12 @@ export function DayReader({
   }, [news, selectedCountry]);
 
   useEffect(() => {
-    if (!selectedCountry) return;
-    // Mobile: bring card into view under the map
-    const el = countryCardRef.current;
-    if (!el) return;
-    const mq = window.matchMedia("(max-width: 1023px)");
-    if (mq.matches) {
-      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
-  }, [selectedCountry]);
+    if (!selectedCountry || !isMobile) return;
+    countryCardRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+    });
+  }, [selectedCountry, isMobile]);
 
   useEffect(() => {
     if (!openId) return;
@@ -286,19 +293,17 @@ export function DayReader({
     </section>
   );
 
-  const countryPanel =
+  const countryCard =
     selectedCountry && onSelectCountry ? (
-      <div ref={countryCardRef}>
-        <CountryCard
-          locale={locale}
-          date={date}
-          iso={selectedCountry}
-          incidents={countryIncidents}
-          news={countryNews}
-          onClear={() => onSelectCountry(null)}
-          onSelectIncident={setOpenId}
-        />
-      </div>
+      <CountryCard
+        locale={locale}
+        date={date}
+        iso={selectedCountry}
+        incidents={countryIncidents}
+        news={countryNews}
+        onClear={() => onSelectCountry(null)}
+        onSelectIncident={setOpenId}
+      />
     ) : null;
 
   return (
@@ -324,10 +329,12 @@ export function DayReader({
         />
       </section>
 
-      {/* Mobile country card directly under map */}
-      {countryPanel ? (
-        <div className="border-b border-[var(--border)] px-4 py-4 lg:hidden">
-          {countryPanel}
+      {countryCard && isMobile ? (
+        <div
+          ref={countryCardRef}
+          className="border-b border-[var(--border)] px-4 py-4"
+        >
+          {countryCard}
         </div>
       ) : null}
 
@@ -363,26 +370,16 @@ export function DayReader({
 
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
           {incidentList}
-          {selectedCountry && onSelectCountry ? (
-            <div className="hidden lg:block lg:sticky lg:top-28">
-              <CountryCard
-                locale={locale}
-                date={date}
-                iso={selectedCountry}
-                incidents={countryIncidents}
-                news={countryNews}
-                onClear={() => onSelectCountry(null)}
-                onSelectIncident={setOpenId}
-              />
-            </div>
-          ) : (
+          {countryCard && !isMobile ? (
+            <div className="lg:sticky lg:top-28">{countryCard}</div>
+          ) : !countryCard ? (
             <NewsWall
               locale={locale}
               date={date}
               items={news}
               className="hidden lg:block lg:sticky lg:top-28"
             />
-          )}
+          ) : null}
         </div>
 
         {!selectedCountry ? (

@@ -75,6 +75,7 @@ export function CountryCard({
         </div>
         <button
           type="button"
+          data-wn-clear-country
           onClick={onClear}
           className="min-h-10 shrink-0 text-[11px] uppercase tracking-widest text-[var(--muted)] hover:text-[var(--accent)]"
         >

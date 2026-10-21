@@ -86,6 +86,7 @@ export function MapControls({
         {selected ? (
           <button
             type="button"
+            data-wn-clear-country
             onClick={() => selectCountry(null)}
             className="min-h-8 border border-[var(--border)] px-2 text-[10px] uppercase tracking-wider text-[var(--accent)] hover:bg-[var(--accent-soft)]"
           >
