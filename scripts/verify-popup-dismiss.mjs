@@ -13,23 +13,30 @@ function ok(name, pass, detail = "") {
   console.log(`${pass ? "PASS" : "FAIL"}  ${name}${detail ? ` — ${detail}` : ""}`);
 }
 
-async function findClusterHover(page, box) {
-  // Sweep the map for a cluster popup (Ukraine area tends to cluster).
-  const points = [];
-  for (let y = 0.25; y <= 0.75; y += 0.08) {
-    for (let x = 0.35; x <= 0.75; x += 0.08) {
-      points.push({ x: box.x + box.width * x, y: box.y + box.height * y });
+async function clusterScreenPoint(page) {
+  return page.evaluate(() => {
+    const map = window.__wnMap;
+    if (!map) return null;
+    const canvas = map.getCanvas();
+    const rect = canvas.getBoundingClientRect();
+    const w = canvas.width;
+    const h = canvas.height;
+    for (let y = 30; y < h - 30; y += 28) {
+      for (let x = 30; x < w - 30; x += 28) {
+        const feats = map.queryRenderedFeatures([x, y], {
+          layers: ["clusters"],
+        });
+        if (feats.length) {
+          return {
+            x: rect.left + (x * rect.width) / w,
+            y: rect.top + (y * rect.height) / h,
+            count: feats[0].properties?.point_count,
+          };
+        }
+      }
     }
-  }
-  for (const p of points) {
-    await page.mouse.move(p.x, p.y);
-    await page.waitForTimeout(120);
-    const open = await page.locator(".wn-hover-popup").filter({
-      hasText: /Incydenty w klastrze|Incidents in cluster/i,
-    }).count();
-    if (open > 0) return p;
-  }
-  return null;
+    return null;
+  });
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -40,68 +47,74 @@ try {
     timeout: 60000,
   });
   await page.waitForSelector(".maplibregl-canvas", { timeout: 45000 });
-  await page.waitForTimeout(3500);
+  await page.waitForFunction(() => Boolean(window.__wnMap), { timeout: 20000 });
+  await page.waitForTimeout(2000);
 
   const box = await page.locator(".maplibregl-canvas").boundingBox();
-  const clusterPt = await findClusterHover(page, box);
-  ok("found cluster popup by hover", Boolean(clusterPt), JSON.stringify(clusterPt));
+  let clusterPt = await clusterScreenPoint(page);
+  // If fully zoomed with no clusters, zoom out once and retry
+  if (!clusterPt) {
+    await page.evaluate(() => {
+      const m = window.__wnMap;
+      if (m) m.easeTo({ zoom: Math.min(m.getZoom(), 3.2), duration: 0 });
+    });
+    await page.waitForTimeout(800);
+    clusterPt = await clusterScreenPoint(page);
+  }
+  ok("found cluster on map", Boolean(clusterPt), JSON.stringify(clusterPt));
 
   if (clusterPt) {
-    // Ensure open
     await page.mouse.move(clusterPt.x, clusterPt.y);
-    await page.waitForTimeout(400);
+    await page.waitForTimeout(500);
     const popup = page.locator(".wn-hover-popup").filter({
       hasText: /Incydenty w klastrze|Incidents in cluster/i,
     });
-    await popup.waitFor({ state: "visible", timeout: 5000 });
+    await popup.waitFor({ state: "visible", timeout: 8000 });
     const popupBox = await popup.boundingBox();
     ok("cluster popup visible", Boolean(popupBox), JSON.stringify(popupBox));
 
     if (popupBox) {
-      // Move onto the list (grace path) — must stay open
       await page.mouse.move(
         popupBox.x + popupBox.width / 2,
-        popupBox.y + Math.min(40, popupBox.height / 3),
-        { steps: 8 },
+        popupBox.y + Math.min(48, popupBox.height / 3),
+        { steps: 10 },
       );
-      await page.waitForTimeout(500);
-      const still = await popup.count();
-      ok("stays open on popup list", still >= 1, `count=${still}`);
+      await page.waitForTimeout(550);
+      ok("stays open on popup list", (await popup.count()) >= 1, "");
 
       const item = popup.locator("button").first();
-      const itemCount = await item.count();
-      ok("list item present", itemCount >= 1, `items=${itemCount}`);
-      if (itemCount) {
-        // Clickability without dismissing mid-hover
+      ok("list item present", (await item.count()) >= 1, "");
+      if (await item.count()) {
         await item.hover();
-        await page.waitForTimeout(200);
-        ok(
-          "still open while over item",
-          (await popup.count()) >= 1,
-          "",
-        );
+        await page.waitForTimeout(250);
+        ok("still open while over item", (await popup.count()) >= 1, "");
       }
 
-      // Leave popup entirely
-      await page.mouse.move(box.x + 20, box.y + 20, { steps: 6 });
-      await page.waitForTimeout(700);
-      const gone = await popup.count();
-      ok("closes after leaving popup", gone === 0, `count=${gone}`);
+      await page.mouse.move(box.x + 24, box.y + 24, { steps: 8 });
+      await page.waitForTimeout(750);
+      ok("closes after leaving popup", (await popup.count()) === 0, "");
     }
 
-    // Touch: reopen via click on cluster, tap outside closes
     await page.mouse.click(clusterPt.x, clusterPt.y);
-    await page.waitForTimeout(600);
-    const reopened = await page.locator(".wn-hover-popup").filter({
-      hasText: /Incydenty w klastrze|Incidents in cluster/i,
-    }).count();
-    ok("tap cluster opens list", reopened >= 1, `count=${reopened}`);
-    await page.mouse.click(box.x + 30, box.y + 30);
-    await page.waitForTimeout(400);
-    const closed = await page.locator(".wn-hover-popup").filter({
-      hasText: /Incydenty w klastrze|Incidents in cluster/i,
-    }).count();
-    ok("tap outside closes", closed === 0, `count=${closed}`);
+    await page.waitForTimeout(700);
+    ok(
+      "tap cluster opens list",
+      (await page
+        .locator(".wn-hover-popup")
+        .filter({ hasText: /Incydenty w klastrze|Incidents in cluster/i })
+        .count()) >= 1,
+      "",
+    );
+    await page.mouse.click(box.x + 28, box.y + 28);
+    await page.waitForTimeout(450);
+    ok(
+      "tap outside closes",
+      (await page
+        .locator(".wn-hover-popup")
+        .filter({ hasText: /Incydenty w klastrze|Incidents in cluster/i })
+        .count()) === 0,
+      "",
+    );
   }
 } finally {
   await browser.close();

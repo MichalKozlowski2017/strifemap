@@ -344,6 +344,8 @@ export function WarMap({
   const onMapLoad = useCallback(() => {
     const map = mapRef.current?.getMap();
     if (!map) return;
+    // Test/debug hook for Playwright — not used by app UI.
+    (window as unknown as { __wnMap?: MaplibreMap }).__wnMap = map;
     const onView = () => recomputeAnchor();
     map.on("move", onView);
     map.on("zoom", onView);
