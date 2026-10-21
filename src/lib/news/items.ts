@@ -21,6 +21,7 @@ export type DayNewsCard = {
   image_url: string;
   source_name: string;
   source_url: string | null;
+  country_iso: string | null;
 };
 
 /** Prefer GPT article summary, else several sentences from summary/body. */
@@ -109,6 +110,10 @@ function toCard(row: NewsItemRow): DayNewsCard | null {
     image_url: image,
     source_name: row.source_name?.trim() || "—",
     source_url: url,
+    country_iso:
+      row.country_iso != null && String(row.country_iso).trim()
+        ? String(row.country_iso).trim().toUpperCase()
+        : null,
   };
 }
 
@@ -128,7 +133,7 @@ export async function getNewsArticleById(
     sql: `
       SELECT i.id, i.occurred_at, i.title, i.summary,
              i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
-             i.confidence, i.article_summary_pl, i.article_summary_en,
+             i.confidence, i.country_iso, i.article_summary_pl, i.article_summary_en,
              t.slug AS theater_slug,
              COALESCE(i.image_url, (
                SELECT r.image_url FROM incident_sources isrc

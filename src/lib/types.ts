@@ -107,4 +107,5 @@ export type MapIncidentFeatureProps = {
   occurred_at: string;
   /** 1 when occurred within the last few hours (pulse). */
   fresh?: 0 | 1;
+  country_iso?: string | null;
 };

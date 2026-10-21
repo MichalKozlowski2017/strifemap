@@ -17,6 +17,12 @@ html.dark {
   --header-bg: rgba(26, 28, 30, 0.94);
   --map-legend: #c4bfb4;
   --danger: #b91c1c;
+  --country-fill: rgba(184, 154, 94, 0.08);
+  --country-fill-active: rgba(184, 154, 94, 0.28);
+  --country-line: rgba(184, 154, 94, 0.55);
+  --country-line-active: rgba(235, 210, 140, 0.9);
+  --country-active-bg: rgba(184, 154, 94, 0.18);
+  --country-active-fg: #e8d7a8;
 }
 
 /* Light: paper + ink */
@@ -35,6 +41,12 @@ html.light {
   --header-bg: rgba(244, 241, 234, 0.94);
   --map-legend: #3a3630;
   --danger: #9f1239;
+  --country-fill: rgba(140, 110, 50, 0.06);
+  --country-fill-active: rgba(140, 110, 50, 0.22);
+  --country-line: rgba(140, 110, 50, 0.5);
+  --country-line-active: rgba(110, 85, 30, 0.85);
+  --country-active-bg: rgba(140, 110, 50, 0.14);
+  --country-active-fg: #5c4818;
 }
 
 @theme inline {

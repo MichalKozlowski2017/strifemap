@@ -1,7 +1,11 @@
 import { MapShell } from "@/components/map/map-shell";
 import { SiteHeader } from "@/components/site-header";
 import { parseDateISO, todayISO } from "@/lib/dates";
-import { getLatestMapDate, listIncidentsForDate } from "@/lib/geo/incidents";
+import {
+  getLatestMapDate,
+  listCountriesWithIncidentsForDate,
+  listIncidentsForDate,
+} from "@/lib/geo/incidents";
 import { getLocale } from "@/lib/i18n/locale";
 import { listTheaters } from "@/lib/db/queries";
 import { getNewsForDay } from "@/lib/news/items";
@@ -11,7 +15,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string; timeRange?: string }>;
+  searchParams: Promise<{ date?: string; country?: string }>;
 }) {
   const params = await searchParams;
   const locale = await getLocale();
@@ -20,9 +24,10 @@ export default async function HomePage({
   const requested = params.date && parseDateISO(params.date) ? params.date : null;
   const date = requested ?? (await getLatestMapDate()) ?? todayISO();
 
-  const [rows, news] = await Promise.all([
+  const [rows, news, countries] = await Promise.all([
     listIncidentsForDate({ date, mapEligibleOnly: true }),
     getNewsForDay({ date }),
+    listCountriesWithIncidentsForDate({ date }),
   ]);
   const incidents = rows.map((r) => ({
     id: String(r.id),
@@ -37,12 +42,22 @@ export default async function HomePage({
     summary_en: r.summary_en != null ? String(r.summary_en) : null,
     theater_name_pl: r.name_pl != null ? String(r.name_pl) : undefined,
     theater_name_en: r.name_en != null ? String(r.name_en) : undefined,
+    country_iso:
+      r.country_iso != null && String(r.country_iso).trim()
+        ? String(r.country_iso).trim().toUpperCase()
+        : null,
   }));
 
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <SiteHeader theaters={theaters} locale={locale} date={date} />
-      <MapShell locale={locale} date={date} incidents={incidents} news={news} />
+      <MapShell
+        locale={locale}
+        date={date}
+        incidents={incidents}
+        news={news}
+        countries={countries}
+      />
     </main>
   );
 }

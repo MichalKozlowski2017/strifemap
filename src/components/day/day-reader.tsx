@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { CountryCard } from "@/components/country/country-card";
 import { MapControls } from "@/components/map/map-controls";
 import { NewsWall } from "@/components/news/news-wall";
 import { WarMap } from "@/components/map/war-map";
@@ -12,6 +13,7 @@ import {
 } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { formatTime } from "@/lib/dates";
+import type { CountryDayChip } from "@/lib/geo/incidents";
 import type { DayNewsCard } from "@/lib/news/items";
 import type { Confidence, IncidentType } from "@/lib/types";
 
@@ -28,6 +30,7 @@ export type DayIncidentCard = {
   summary_en?: string | null;
   theater_name_pl?: string;
   theater_name_en?: string;
+  country_iso?: string | null;
 };
 
 type SourceRow = {
@@ -41,6 +44,9 @@ type Props = {
   date: string;
   geojsonUrl: string;
   enabledTypes?: Set<IncidentType>;
+  selectedCountry?: string | null;
+  onSelectCountry?: (iso: string | null) => void;
+  countries?: CountryDayChip[];
   incidents: DayIncidentCard[];
   news?: DayNewsCard[];
   briefTitle?: string | null;
@@ -54,6 +60,9 @@ export function DayReader({
   date,
   geojsonUrl,
   enabledTypes,
+  selectedCountry = null,
+  onSelectCountry,
+  countries = [],
   incidents,
   news = [],
   briefTitle,
@@ -64,9 +73,33 @@ export function DayReader({
   const d = t(locale);
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinCount, setPinCount] = useState<number | null>(null);
+  const countryCardRef = useRef<HTMLDivElement>(null);
   const [sourcesById, setSourcesById] = useState<
     Record<string, SourceRow[] | "loading">
   >({});
+
+  const countryIncidents = useMemo(() => {
+    if (!selectedCountry) return [];
+    return incidents.filter(
+      (i) => i.country_iso?.toUpperCase() === selectedCountry,
+    );
+  }, [incidents, selectedCountry]);
+
+  const countryNews = useMemo(() => {
+    if (!selectedCountry) return [];
+    return news.filter((n) => n.country_iso?.toUpperCase() === selectedCountry);
+  }, [news, selectedCountry]);
+
+  useEffect(() => {
+    if (!selectedCountry) return;
+    // Mobile: bring card into view under the map
+    const el = countryCardRef.current;
+    if (!el) return;
+    const mq = window.matchMedia("(max-width: 1023px)");
+    if (mq.matches) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [selectedCountry]);
 
   useEffect(() => {
     if (!openId) return;
@@ -253,6 +286,21 @@ export function DayReader({
     </section>
   );
 
+  const countryPanel =
+    selectedCountry && onSelectCountry ? (
+      <div ref={countryCardRef}>
+        <CountryCard
+          locale={locale}
+          date={date}
+          iso={selectedCountry}
+          incidents={countryIncidents}
+          news={countryNews}
+          onClear={() => onSelectCountry(null)}
+          onSelectIncident={setOpenId}
+        />
+      </div>
+    ) : null;
+
   return (
     <div className="flex flex-col">
       <section className="relative h-[50vh] min-h-[280px] w-full border-b border-[var(--border)]">
@@ -261,14 +309,27 @@ export function DayReader({
           locale={locale}
           enabledTypes={enabledTypes}
           selectedId={openId}
+          selectedCountry={selectedCountry}
           onSelect={setOpenId}
+          onSelectCountry={onSelectCountry}
           onPinCount={setPinCount}
           initialViewState={mapView}
           className="absolute inset-0 h-full w-full"
           emptyLabel={d.mapEmptyRange}
         />
-        <MapControls locale={locale} pinCount={pinCount} />
+        <MapControls
+          locale={locale}
+          pinCount={pinCount}
+          countries={countries}
+        />
       </section>
+
+      {/* Mobile country card directly under map */}
+      {countryPanel ? (
+        <div className="border-b border-[var(--border)] px-4 py-4 lg:hidden">
+          {countryPanel}
+        </div>
+      ) : null}
 
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6">
         <section className="mb-10 max-w-3xl">
@@ -300,23 +361,38 @@ export function DayReader({
           )}
         </section>
 
-        {/* Desktop: incidents | news wall. Mobile: incidents then news wall below. */}
         <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start lg:gap-8">
           {incidentList}
+          {selectedCountry && onSelectCountry ? (
+            <div className="hidden lg:block lg:sticky lg:top-28">
+              <CountryCard
+                locale={locale}
+                date={date}
+                iso={selectedCountry}
+                incidents={countryIncidents}
+                news={countryNews}
+                onClear={() => onSelectCountry(null)}
+                onSelectIncident={setOpenId}
+              />
+            </div>
+          ) : (
+            <NewsWall
+              locale={locale}
+              date={date}
+              items={news}
+              className="hidden lg:block lg:sticky lg:top-28"
+            />
+          )}
+        </div>
+
+        {!selectedCountry ? (
           <NewsWall
             locale={locale}
             date={date}
             items={news}
-            className="hidden lg:block lg:sticky lg:top-28"
+            className="mt-12 border-t border-[var(--border)] pt-10 lg:hidden"
           />
-        </div>
-
-        <NewsWall
-          locale={locale}
-          date={date}
-          items={news}
-          className="mt-12 border-t border-[var(--border)] pt-10 lg:hidden"
-        />
+        ) : null}
       </div>
     </div>
   );

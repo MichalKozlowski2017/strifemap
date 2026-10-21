@@ -17,6 +17,8 @@ import {
   inferTheaterSlug,
   triageItem,
 } from "@/lib/sources/triage";
+import { isoFromLatLng } from "@/lib/geo/countries";
+import { guessIsoFromText } from "@/lib/geo/country-names";
 import type { Confidence, IncidentType } from "@/lib/types";
 import { newId, nowIso } from "@/lib/utils/id";
 
@@ -376,10 +378,25 @@ export async function extractIncidents(limit?: number): Promise<{
         })
           ? 1
           : 0;
+        const mergeLat = matchLat ?? data.lat;
+        const mergeLng = matchLng ?? data.lng;
+        const mergeIso =
+          mergeLat != null && mergeLng != null
+            ? isoFromLatLng(Number(mergeLat), Number(mergeLng))
+            : null;
         await db.execute({
           sql: `UPDATE incidents SET lat = COALESCE(lat, ?), lng = COALESCE(lng, ?),
-            map_eligible = ?, updated_at = ? WHERE id = ?`,
-          args: [data.lat, data.lng, eligible, nowIso(), matchId],
+            map_eligible = ?,
+            country_iso = COALESCE(country_iso, ?),
+            updated_at = ? WHERE id = ?`,
+          args: [
+            data.lat,
+            data.lng,
+            eligible,
+            mergeIso,
+            nowIso(),
+            matchId,
+          ],
         });
         await markRaw(row.id, "processed");
         merged += 1;
@@ -402,6 +419,10 @@ export async function extractIncidents(limit?: number): Promise<{
         sourceCount,
         trustWeight: trust,
       });
+      const countryIso =
+        data.lat != null && data.lng != null
+          ? isoFromLatLng(Number(data.lat), Number(data.lng))
+          : guessIsoFromText(data.title_en, data.title_pl, data.summary_en, data.summary_pl);
 
       await db.batch(
         [
@@ -410,8 +431,8 @@ export async function extractIncidents(limit?: number): Promise<{
               id, theater_id, type, title, summary,
               title_pl, title_en, summary_pl, summary_en,
               lat, lng, occurred_at,
-              confidence, status, map_eligible, image_url, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+              confidence, status, map_eligible, image_url, country_iso, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             args: [
               incidentId,
               theaterId,
@@ -429,6 +450,7 @@ export async function extractIncidents(limit?: number): Promise<{
               status,
               mapEligible ? 1 : 0,
               row.image_url,
+              countryIso,
               nowIso(),
               nowIso(),
             ],
@@ -484,6 +506,7 @@ async function createNewsOnlyIncident(
   // Reuse source language for both locales — do not spend tokens translating.
   const title = row.title.trim();
   const incidentId = newId();
+  const countryIso = guessIsoFromText(title, summary, row.body);
 
   await db.batch(
     [
@@ -492,8 +515,8 @@ async function createNewsOnlyIncident(
           id, theater_id, type, title, summary,
           title_pl, title_en, summary_pl, summary_en,
           lat, lng, occurred_at,
-          confidence, status, map_eligible, image_url, created_at, updated_at
-        ) VALUES (?, ?, 'other', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'reported', 'pending', 0, ?, ?, ?)`,
+          confidence, status, map_eligible, image_url, country_iso, created_at, updated_at
+        ) VALUES (?, ?, 'other', ?, ?, ?, ?, ?, ?, NULL, NULL, ?, 'reported', 'pending', 0, ?, ?, ?, ?)`,
         args: [
           incidentId,
           theaterId,
@@ -505,6 +528,7 @@ async function createNewsOnlyIncident(
           summary,
           nowIso(),
           row.image_url,
+          countryIso,
           nowIso(),
           nowIso(),
         ],

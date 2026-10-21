@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/site-header";
 import { parseDateISO, todayISO } from "@/lib/dates";
 import {
   getLatestMapDate,
+  listCountriesWithIncidentsForDate,
   listIncidentsForDate,
 } from "@/lib/geo/incidents";
 import { getTheaterBySlug, listTheaters } from "@/lib/db/queries";
@@ -30,7 +31,7 @@ export default async function TheaterPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ date?: string; timeRange?: string }>;
+  searchParams: Promise<{ date?: string; country?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -44,7 +45,7 @@ export default async function TheaterPage({
   const date =
     requested ?? (await getLatestMapDate(theater.slug)) ?? todayISO();
 
-  const [theaters, rows, news] = await Promise.all([
+  const [theaters, rows, news, countries] = await Promise.all([
     listTheaters(),
     listIncidentsForDate({
       date,
@@ -52,6 +53,10 @@ export default async function TheaterPage({
       mapEligibleOnly: true,
     }),
     getNewsForDay({ date, theaterSlug: theater.slug }),
+    listCountriesWithIncidentsForDate({
+      date,
+      theaterSlug: theater.slug,
+    }),
   ]);
 
   // Day-scoped sitrep only — never fall back to another day's brief.
@@ -81,6 +86,10 @@ export default async function TheaterPage({
     summary_en: r.summary_en != null ? String(r.summary_en) : null,
     theater_name_pl: theater.name_pl,
     theater_name_en: theater.name_en,
+    country_iso:
+      r.country_iso != null && String(r.country_iso).trim()
+        ? String(r.country_iso).trim().toUpperCase()
+        : null,
   }));
 
   const briefTitle =
@@ -137,6 +146,7 @@ export default async function TheaterPage({
         theaterSlug={theater.slug}
         incidents={incidents}
         news={news}
+        countries={countries}
         briefTitle={briefTitle}
         briefBody={briefBody ?? emptySitrep}
         briefPoints={briefPoints}

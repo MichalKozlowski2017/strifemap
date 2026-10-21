@@ -62,12 +62,14 @@ CREATE TABLE IF NOT EXISTS incidents (
   image_url TEXT,
   article_summary_pl TEXT,
   article_summary_en TEXT,
+  country_iso TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_incidents_map ON incidents(status, map_eligible, occurred_at);
 CREATE INDEX IF NOT EXISTS idx_incidents_theater ON incidents(theater_id, occurred_at);
+CREATE INDEX IF NOT EXISTS idx_incidents_country_day ON incidents(country_iso, occurred_at);
 
 CREATE TABLE IF NOT EXISTS incident_sources (
   incident_id TEXT NOT NULL REFERENCES incidents(id) ON DELETE CASCADE,

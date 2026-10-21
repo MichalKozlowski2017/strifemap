@@ -66,7 +66,7 @@ export async function getMapGeoJSON(options?: {
   const result = await db.execute({
     sql: `
       SELECT i.id, i.title, i.summary, i.title_pl, i.title_en, i.summary_pl, i.summary_en,
-             i.type, i.confidence, i.lat, i.lng, i.occurred_at,
+             i.type, i.confidence, i.lat, i.lng, i.occurred_at, i.country_iso,
              t.slug AS theater_slug, t.name_pl AS theater_name_pl, t.name_en AS theater_name_en
       FROM incidents i
       JOIN theaters t ON t.id = i.theater_id
@@ -107,6 +107,8 @@ export async function getMapGeoJSON(options?: {
           theater_name_en: String(row.theater_name_en),
           occurred_at: occurredAt,
           fresh,
+          country_iso:
+            row.country_iso != null ? String(row.country_iso).toUpperCase() : null,
         },
       };
     }),
@@ -173,7 +175,50 @@ export type NewsItemRow = {
   body: string | null;
   article_summary_pl: string | null;
   article_summary_en: string | null;
+  country_iso: string | null;
 };
+
+export type CountryDayChip = {
+  iso: string;
+  incidentCount: number;
+};
+
+/** Countries that have map-eligible incidents on the selected day. */
+export async function listCountriesWithIncidentsForDate(options: {
+  date: string;
+  theaterSlug?: string;
+}): Promise<CountryDayChip[]> {
+  const bounds = dayBoundsISO(options.date);
+  if (!bounds) return [];
+  const db = getDb();
+  const args: (string | number)[] = [bounds.start, bounds.end];
+  let theaterClause = "";
+  if (options.theaterSlug) {
+    theaterClause = "AND t.slug = ?";
+    args.push(options.theaterSlug);
+  }
+  const result = await db.execute({
+    sql: `
+      SELECT i.country_iso AS iso, COUNT(*) AS c
+      FROM incidents i
+      JOIN theaters t ON t.id = i.theater_id
+      WHERE i.occurred_at >= ? AND i.occurred_at <= ?
+        AND i.map_eligible = 1
+        AND i.status IN ('approved', 'published')
+        AND i.lat IS NOT NULL AND i.lng IS NOT NULL
+        AND i.country_iso IS NOT NULL AND trim(i.country_iso) != ''
+        ${theaterClause}
+      GROUP BY i.country_iso
+      ORDER BY c DESC, iso ASC
+      LIMIT 40
+    `,
+    args,
+  });
+  return result.rows.map((r) => ({
+    iso: String(r.iso).toUpperCase(),
+    incidentCount: Number(r.c) || 0,
+  }));
+}
 
 export async function listNewsForDate(options: {
   date: string;
@@ -204,7 +249,7 @@ export async function listNewsForDate(options: {
     sql: `
       SELECT i.id, i.occurred_at, i.title, i.summary,
              i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
-             i.confidence,
+             i.confidence, i.country_iso,
              i.article_summary_pl, i.article_summary_en,
              t.slug AS theater_slug,
              COALESCE(i.image_url, (
