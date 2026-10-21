@@ -16,7 +16,7 @@ type RssItem = Parser.Item & {
 const parser = new Parser({
   timeout: 20_000,
   headers: {
-    "User-Agent": "WarNews/1.0 (+https://github.com/MichalKozlowski2017/warnews)",
+    "User-Agent": "StrifeMap/1.0 (+https://github.com/MichalKozlowski2017/strifemap)",
     Accept: "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
   },
   customFields: {
@@ -98,7 +98,7 @@ export async function fetchOgImage(pageUrl: string): Promise<string | null> {
     const res = await fetch(pageUrl, {
       headers: {
         "User-Agent":
-          "WarNews/1.0 (+https://github.com/MichalKozlowski2017/warnews)",
+          "StrifeMap/1.0 (+https://github.com/MichalKozlowski2017/strifemap)",
         Accept: "text/html",
       },
       signal: AbortSignal.timeout(4_000),

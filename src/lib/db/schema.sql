@@ -1,4 +1,4 @@
--- War News schema (Turso / libSQL / SQLite)
+-- Strife Map schema (Turso / libSQL / SQLite)
 
 CREATE TABLE IF NOT EXISTS theaters (
   id TEXT PRIMARY KEY,

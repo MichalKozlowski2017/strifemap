@@ -26,7 +26,7 @@ export async function fetchGdeltItems(
   const res = await fetch(source.url, {
     headers: {
       Accept: "application/json",
-      "User-Agent": "WarNews/1.0 (+https://github.com/MichalKozlowski2017/warnews)",
+      "User-Agent": "StrifeMap/1.0 (+https://github.com/MichalKozlowski2017/strifemap)",
     },
     signal: AbortSignal.timeout(25_000),
   });

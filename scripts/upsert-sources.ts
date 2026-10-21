@@ -23,7 +23,7 @@ async function main() {
 
   const url =
     process.env.TURSO_DATABASE_URL ??
-    `file:${path.resolve(process.cwd(), "data", "warnews.db")}`;
+    `file:${path.resolve(process.cwd(), "data", "strifemap.db")}`;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   const db = createClient({
     url,
@@ -71,7 +71,7 @@ async function main() {
   const seedDisable = await db.execute({
     sql: `UPDATE sources SET enabled = 0
           WHERE name = 'War News Seed'
-             OR url LIKE 'https://warnews.local/%'`,
+             OR url LIKE 'https://strifemap.local/%'`,
   });
 
   // Disable known-broken legacy feeds no longer in catalog

@@ -189,7 +189,7 @@ const SAMPLE_INCIDENTS: {
 async function main() {
   const url =
     process.env.TURSO_DATABASE_URL ??
-    `file:${path.resolve(process.cwd(), "data", "warnews.db")}`;
+    `file:${path.resolve(process.cwd(), "data", "strifemap.db")}`;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   const db = createClient({
     url,
@@ -276,7 +276,7 @@ async function main() {
   // Demo seed incidents (approved + map_eligible) so map works without AI.
   // Source stays disabled so ingest never pulls from it.
   const seedSourceId = id();
-  const seedSourceUrl = "https://warnews.local/seed";
+  const seedSourceUrl = "https://strifemap.local/seed";
   const existingSeedSrc = await db.execute({
     sql: `SELECT id FROM sources WHERE url = ?`,
     args: [seedSourceUrl],

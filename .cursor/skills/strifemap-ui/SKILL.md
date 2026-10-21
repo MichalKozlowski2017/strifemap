@@ -1,5 +1,5 @@
 ---
-name: warnews-ui
+name: strifemap-ui
 description: >-
   Use when changing Strife Map UI — map, pins, cluster popup, incident accordion,
   news wall, article view, light/dark, Polish/English, desktop or mobile. A short
@@ -8,7 +8,7 @@ description: >-
 
 # Strife Map UI checklist
 
-Product rules live in **repo-root `AGENTS.md`** (from this file: `../../../AGENTS.md`). This skill is only how to check a UI change before calling it done. Product name is Strife Map; skill path stays `warnews-ui`.
+Product rules live in **repo-root `AGENTS.md`** (from this file: `../../../AGENTS.md`). This skill is only how to check a UI change before calling it done. Product name is Strife Map; skill path stays `strifemap-ui`.
 
 ## Before done
 

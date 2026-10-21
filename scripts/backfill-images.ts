@@ -22,7 +22,7 @@ async function main() {
   loadEnvLocal();
   const url =
     process.env.TURSO_DATABASE_URL ??
-    `file:${path.resolve(process.cwd(), "data", "warnews.db")}`;
+    `file:${path.resolve(process.cwd(), "data", "strifemap.db")}`;
   const db = createClient({
     url,
     ...(process.env.TURSO_AUTH_TOKEN
@@ -39,7 +39,7 @@ async function main() {
       WHERE i.map_eligible = 0
         AND (i.image_url IS NULL OR i.image_url = '')
         AND r.url IS NOT NULL
-        AND r.url NOT LIKE 'https://warnews.local/%'
+        AND r.url NOT LIKE 'https://strifemap.local/%'
       ORDER BY i.occurred_at DESC
       LIMIT ?
     `,

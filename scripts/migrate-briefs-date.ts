@@ -5,7 +5,7 @@ import path from "node:path";
 async function main() {
   const url =
     process.env.TURSO_DATABASE_URL ??
-    `file:${path.resolve(process.cwd(), "data", "warnews.db")}`;
+    `file:${path.resolve(process.cwd(), "data", "strifemap.db")}`;
   const authToken = process.env.TURSO_AUTH_TOKEN;
   const dataDir = path.resolve(process.cwd(), "data");
   if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });

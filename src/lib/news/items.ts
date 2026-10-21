@@ -151,7 +151,7 @@ function toCard(
   }
 
   const url = row.source_url?.trim() || null;
-  if (url?.startsWith("https://warnews.local/")) return null;
+  if (url?.startsWith("https://strifemap.local/")) return null;
 
   return {
     id: String(row.id),
@@ -189,7 +189,7 @@ async function ensureOgImages(rows: NewsItemRow[]): Promise<NewsItemRow[]> {
       continue;
     }
     const pageUrl = row.source_url?.trim();
-    if (!pageUrl || pageUrl.startsWith("https://warnews.local/")) {
+    if (!pageUrl || pageUrl.startsWith("https://strifemap.local/")) {
       out.push(row);
       continue;
     }

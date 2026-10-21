@@ -21,7 +21,7 @@ Copy `.env.example` → `.env.local`:
 
 | Variable | Required | Notes |
 |---|---|---|
-| `TURSO_DATABASE_URL` | No | Unset → `file:./data/warnews.db` |
+| `TURSO_DATABASE_URL` | No | Unset → `file:./data/strifemap.db` |
 | `TURSO_AUTH_TOKEN` | With Turso | Turso auth token |
 | `OPENAI_API_KEY` | No | Without it, `/api/cron/extract` and `/api/cron/sitrep` skip gracefully |
 | `OPENAI_MODEL` | No | Default `gpt-4o-mini` |

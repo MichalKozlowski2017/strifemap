@@ -14,15 +14,15 @@ Do not undo the decisions below unless Michał explicitly asks.
 
 ## App & git
 
-- Product name: **Strife Map** (do not translate). Repo/folder stay `warnews`.
-- Next.js app lives at `~/Sites/warnews`.
+- Product name: **Strife Map** (do not translate). Repo/folder stay `strifemap`.
+- Next.js app lives at `~/Sites/strifemap`.
 - Live: https://warnews-eight.vercel.app
-- GitHub: https://github.com/MichalKozlowski2017/warnews
+- GitHub: https://github.com/MichalKozlowski2017/strifemap
 - One writer. Commit and push `main` (Vercel deploys from main).
 
 ## Database
 
-- Turso (libSQL) only. Local `data/warnews.db` only when `TURSO_*` is missing.
+- Turso (libSQL) only. Local `data/strifemap.db` only when `TURSO_*` is missing.
 - Do not add Neon or Supabase.
 
 ## OpenAI

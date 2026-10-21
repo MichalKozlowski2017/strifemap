@@ -1,5 +1,5 @@
 /**
- * Offline QA harness for War News pipeline health.
+ * Offline QA harness for Strife Map pipeline health.
  * Loads .env.local — never prints tokens/keys.
  */
 import { createClient } from "@libsql/client";
@@ -21,7 +21,7 @@ async function main() {
   loadEnvLocal();
   const url =
     process.env.TURSO_DATABASE_URL ??
-    `file:${path.resolve(process.cwd(), "data", "warnews.db")}`;
+    `file:${path.resolve(process.cwd(), "data", "strifemap.db")}`;
   const db = createClient({
     url,
     ...(process.env.TURSO_AUTH_TOKEN

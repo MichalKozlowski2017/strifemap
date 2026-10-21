@@ -113,7 +113,7 @@ export async function runQaChecks(db: Client): Promise<QaReport> {
   });
 
   const seedEnabled = await db.execute(
-    `SELECT COUNT(*) AS c FROM sources WHERE enabled = 1 AND (name = 'War News Seed' OR url LIKE 'https://warnews.local/%')`,
+    `SELECT COUNT(*) AS c FROM sources WHERE enabled = 1 AND (name = 'War News Seed' OR url LIKE 'https://strifemap.local/%')`,
   );
   const seedOn = Number(seedEnabled.rows[0].c);
   checks.push({

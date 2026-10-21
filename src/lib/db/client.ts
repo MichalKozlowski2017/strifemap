@@ -7,7 +7,7 @@ function resolveUrl(): string {
   if (process.env.TURSO_DATABASE_URL) {
     return process.env.TURSO_DATABASE_URL;
   }
-  const filePath = path.resolve(process.cwd(), "data", "warnews.db");
+  const filePath = path.resolve(process.cwd(), "data", "strifemap.db");
   return `file:${filePath}`;
 }
 
