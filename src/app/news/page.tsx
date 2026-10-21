@@ -46,7 +46,7 @@ export default async function NewsPage({
             {d.newsHint}
           </p>
         </header>
-        <NewsFront locale={locale} items={items} />
+        <NewsFront locale={locale} date={date} items={items} />
       </div>
     </main>
   );

@@ -2,17 +2,22 @@
 
 import { useState } from "react";
 
-/** Real photo when URL works; quiet non-photo fallback otherwise. Never generates images. */
+/**
+ * Real photo only. With `required`, hide entirely if URL missing/fails
+ * (parent should already filter missing URLs).
+ */
 export function NewsImage({
   src,
   alt,
   className = "",
   aspect = "video",
+  required = false,
 }: {
   src: string | null | undefined;
   alt: string;
   className?: string;
   aspect?: "video" | "square" | "wide";
+  required?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
   const ratio =
@@ -23,17 +28,12 @@ export function NewsImage({
         : "aspect-video";
 
   if (!src || failed) {
+    if (required) return null;
     return (
       <div
         className={`${ratio} w-full bg-[var(--surface-2)] ${className}`}
         aria-hidden
-      >
-        <div className="flex h-full w-full items-end p-2">
-          <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--muted-2)]">
-            —
-          </span>
-        </div>
-      </div>
+      />
     );
   }
 

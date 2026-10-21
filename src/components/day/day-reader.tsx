@@ -182,63 +182,69 @@ export function DayReader({
                   ) : null}
                 </button>
 
-                {open ? (
-                  <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
-                    {summary ? (
-                      <p className="text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">
-                        {summary}
-                      </p>
-                    ) : null}
-                    <div className="mt-4">
-                      <p className="text-[10px] uppercase tracking-widest text-[var(--accent)]">
-                        {d.sources}
-                      </p>
-                      {sources === "loading" || sources === undefined ? (
-                        <p className="mt-2 text-xs text-[var(--muted-2)]">…</p>
-                      ) : sources.length === 0 ? (
-                        <p className="mt-2 text-xs text-[var(--muted)]">
-                          {d.noSources}
+                <div
+                  className="wn-accordion"
+                  data-open={open ? "true" : "false"}
+                  aria-hidden={!open}
+                >
+                  <div className="wn-accordion__inner">
+                    <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
+                      {summary ? (
+                        <p className="text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">
+                          {summary}
                         </p>
-                      ) : (
-                        <ul className="mt-2 space-y-2 text-sm">
-                          {sources.map((s, idx) => {
-                            const name = s.source_name?.trim() || "Source";
-                            const original = s.title?.trim();
-                            const href = s.url?.trim();
-                            const label = original
-                              ? `${name}: ${original}`
-                              : name;
-                            return (
-                              <li key={`${href ?? name}-${idx}`}>
-                                {href ? (
-                                  <a
-                                    href={href}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
-                                  >
-                                    {label}
-                                  </a>
-                                ) : (
-                                  <span className="text-[var(--muted)]">
-                                    {label}
-                                  </span>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
+                      ) : null}
+                      <div className="mt-4">
+                        <p className="text-[10px] uppercase tracking-widest text-[var(--accent)]">
+                          {d.sources}
+                        </p>
+                        {sources === "loading" || sources === undefined ? (
+                          <p className="mt-2 text-xs text-[var(--muted-2)]">…</p>
+                        ) : sources.length === 0 ? (
+                          <p className="mt-2 text-xs text-[var(--muted)]">
+                            {d.noSources}
+                          </p>
+                        ) : (
+                          <ul className="mt-2 space-y-2 text-sm">
+                            {sources.map((s, idx) => {
+                              const name = s.source_name?.trim() || "Source";
+                              const original = s.title?.trim();
+                              const href = s.url?.trim();
+                              const label = original
+                                ? `${name}: ${original}`
+                                : name;
+                              return (
+                                <li key={`${href ?? name}-${idx}`}>
+                                  {href ? (
+                                    <a
+                                      href={href}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
+                                    >
+                                      {label}
+                                    </a>
+                                  ) : (
+                                    <span className="text-[var(--muted)]">
+                                      {label}
+                                    </span>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setOpenId(null)}
+                        className="mt-3 text-[11px] uppercase tracking-widest text-[var(--muted-2)] hover:text-[var(--accent)]"
+                      >
+                        {d.close}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setOpenId(null)}
-                      className="mt-3 text-[11px] uppercase tracking-widest text-[var(--muted-2)] hover:text-[var(--accent)]"
-                    >
-                      {d.close}
-                    </button>
                   </div>
-                ) : null}
+                </div>
               </div>
             </li>
           );

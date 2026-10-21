@@ -1,18 +1,24 @@
+import Link from "next/link";
 import { formatTime } from "@/lib/dates";
 import {
   localizedSummary,
   localizedTitle,
 } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
-import { newsCopy, type DayNewsCard } from "@/lib/news/items";
+import {
+  articleSummaryForLocale,
+  type DayNewsCard,
+} from "@/lib/news/items";
 import { NewsImage } from "@/components/news/news-image";
 
-/** Readable news front: lead with large image, then list. */
+/** Day news front: lead + list. Thumb/title → article; separate source link. */
 export function NewsFront({
   locale,
+  date,
   items,
 }: {
   locale: Locale;
+  date: string;
   items: DayNewsCard[];
 }) {
   const d = t(locale);
@@ -21,23 +27,20 @@ export function NewsFront({
     return <p className="text-base text-[var(--muted)]">{d.newsEmpty}</p>;
   }
 
-  const photoIdx = items.findIndex((i) => i.image_url);
-  const ordered =
-    photoIdx > 0
-      ? [items[photoIdx], ...items.filter((_, i) => i !== photoIdx)]
-      : items;
-  const leadStory = ordered[0]!;
-  const list = ordered.slice(1);
+  const [leadStory, ...list] = items;
 
   return (
     <div className="space-y-10">
       <article className="border border-[var(--border)] bg-[var(--surface)]">
-        <NewsImage
-          src={leadStory.image_url}
-          alt={localizedTitle(leadStory, locale)}
-          aspect="wide"
-          className="w-full"
-        />
+        <Link href={`/news/${leadStory.id}?date=${date}`} className="block">
+          <NewsImage
+            src={leadStory.image_url}
+            alt={localizedTitle(leadStory, locale)}
+            aspect="wide"
+            className="w-full"
+            required
+          />
+        </Link>
         <div className="space-y-3 p-4 md:p-6">
           <p className="text-[11px] uppercase tracking-widest text-[var(--muted-2)]">
             {formatTime(leadStory.occurred_at, locale)}
@@ -47,15 +50,16 @@ export function NewsFront({
             {d.newsNotOnMap}
           </p>
           <h2 className="font-[family-name:var(--font-display)] text-2xl leading-tight tracking-wide text-[var(--foreground)] md:text-4xl">
-            {localizedTitle(leadStory, locale)}
+            <Link
+              href={`/news/${leadStory.id}?date=${date}`}
+              className="hover:text-[var(--accent)]"
+            >
+              {localizedTitle(leadStory, locale)}
+            </Link>
           </h2>
           <p className="max-w-3xl text-base leading-relaxed text-[var(--muted)] md:text-lg">
-            {newsCopy(
-              localizedSummary(leadStory, locale),
-              leadStory.body,
-              6,
-              1_100,
-            )}
+            {articleSummaryForLocale(leadStory, locale) ||
+              localizedSummary(leadStory, locale)}
           </p>
           {leadStory.source_url ? (
             <a
@@ -74,29 +78,33 @@ export function NewsFront({
         <ul className="divide-y divide-[var(--border)] border-t border-[var(--border)]">
           {list.map((item) => {
             const title = localizedTitle(item, locale);
-            const copy = newsCopy(
-              localizedSummary(item, locale),
-              item.body,
-              4,
-              720,
-            );
+            const articleHref = `/news/${item.id}?date=${date}`;
+            const copy = articleSummaryForLocale(item, locale);
             return (
               <li key={item.id} className="py-5 first:pt-6">
                 <div className="grid gap-4 sm:grid-cols-[minmax(0,11rem)_1fr]">
-                  <NewsImage
-                    src={item.image_url}
-                    alt=""
-                    aspect="video"
-                    className="rounded-sm"
-                  />
+                  <Link href={articleHref} className="block overflow-hidden">
+                    <NewsImage
+                      src={item.image_url}
+                      alt={title}
+                      aspect="video"
+                      className="rounded-sm"
+                      required
+                    />
+                  </Link>
                   <div className="min-w-0">
                     <p className="text-[11px] uppercase tracking-widest text-[var(--muted-2)]">
                       {formatTime(item.occurred_at, locale)}
                       <span className="mx-1.5">·</span>
                       {item.source_name}
                     </p>
-                    <h3 className="mt-1 text-lg font-medium leading-snug text-[var(--foreground)] md:text-xl">
-                      {title}
+                    <h3 className="mt-1 text-lg font-medium leading-snug md:text-xl">
+                      <Link
+                        href={articleHref}
+                        className="text-[var(--foreground)] hover:text-[var(--accent)]"
+                      >
+                        {title}
+                      </Link>
                     </h3>
                     {copy ? (
                       <p className="mt-2 text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">

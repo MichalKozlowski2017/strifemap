@@ -161,6 +161,8 @@ export type NewsItemRow = {
   source_count: number;
   image_url: string | null;
   body: string | null;
+  article_summary_pl: string | null;
+  article_summary_en: string | null;
 };
 
 export async function listNewsForDate(options: {
@@ -193,6 +195,7 @@ export async function listNewsForDate(options: {
       SELECT i.id, i.occurred_at, i.title, i.summary,
              i.title_pl, i.title_en, i.summary_pl, i.summary_en, i.type,
              i.confidence,
+             i.article_summary_pl, i.article_summary_en,
              t.slug AS theater_slug,
              COALESCE(i.image_url, (
                SELECT r.image_url FROM incident_sources isrc

@@ -60,6 +60,8 @@ CREATE TABLE IF NOT EXISTS incidents (
   status TEXT NOT NULL DEFAULT 'pending',
   map_eligible INTEGER NOT NULL DEFAULT 0,
   image_url TEXT,
+  article_summary_pl TEXT,
+  article_summary_en TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
