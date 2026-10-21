@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { MapControls } from "@/components/map/map-controls";
 import { NewsWall } from "@/components/news/news-wall";
 import { WarMap } from "@/components/map/war-map";
 import {
@@ -39,6 +40,7 @@ type Props = {
   locale: Locale;
   date: string;
   geojsonUrl: string;
+  enabledTypes?: Set<IncidentType>;
   incidents: DayIncidentCard[];
   news?: DayNewsCard[];
   briefTitle?: string | null;
@@ -47,30 +49,11 @@ type Props = {
   mapView?: { longitude: number; latitude: number; zoom: number };
 };
 
-const LEGEND_TYPES: IncidentType[] = [
-  "kinetic",
-  "sabotage",
-  "cyber",
-  "air",
-  "naval",
-  "diplomatic",
-  "other",
-];
-
-const LEGEND_COLORS: Record<IncidentType, string> = {
-  kinetic: "#b91c1c",
-  sabotage: "#d97706",
-  cyber: "#0d9488",
-  air: "#b45309",
-  naval: "#0369a1",
-  diplomatic: "#64748b",
-  other: "#a8a29e",
-};
-
 export function DayReader({
   locale,
   date,
   geojsonUrl,
+  enabledTypes,
   incidents,
   news = [],
   briefTitle,
@@ -80,6 +63,7 @@ export function DayReader({
 }: Props) {
   const d = t(locale);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [pinCount, setPinCount] = useState<number | null>(null);
   const [sourcesById, setSourcesById] = useState<
     Record<string, SourceRow[] | "loading">
   >({});
@@ -275,24 +259,15 @@ export function DayReader({
         <WarMap
           geojsonUrl={geojsonUrl}
           locale={locale}
+          enabledTypes={enabledTypes}
           selectedId={openId}
           onSelect={setOpenId}
+          onPinCount={setPinCount}
           initialViewState={mapView}
           className="absolute inset-0 h-full w-full"
-          emptyLabel={d.emptyDay}
+          emptyLabel={d.mapEmptyRange}
         />
-        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex flex-wrap gap-x-3 gap-y-1 text-[10px] uppercase tracking-wider text-[var(--map-legend)] md:left-4">
-          <span className="opacity-60">{d.legend}</span>
-          {LEGEND_TYPES.map((type) => (
-            <span key={type} className="inline-flex items-center gap-1.5">
-              <span
-                className="inline-block h-2 w-2 rounded-full"
-                style={{ background: LEGEND_COLORS[type] }}
-              />
-              {typeLabel(type, locale)}
-            </span>
-          ))}
-        </div>
+        <MapControls locale={locale} pinCount={pinCount} />
       </section>
 
       <div className="mx-auto w-full max-w-7xl px-4 py-8 md:px-6">

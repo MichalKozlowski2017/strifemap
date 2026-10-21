@@ -24,7 +24,12 @@ import {
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { oneSentence } from "@/lib/i18n/text";
 import { formatTime } from "@/lib/dates";
-import type { Confidence, IncidentType, MapIncidentFeatureProps } from "@/lib/types";
+import { INCIDENT_TYPES } from "@/lib/map/params";
+import type {
+  Confidence,
+  IncidentType,
+  MapIncidentFeatureProps,
+} from "@/lib/types";
 import "maplibre-gl/dist/maplibre-gl.css";
 
 if (typeof window !== "undefined") {
@@ -34,8 +39,11 @@ if (typeof window !== "undefined") {
 type Props = {
   geojsonUrl: string;
   locale: Locale;
+  /** Types currently visible; omit / full set = all. */
+  enabledTypes?: Set<IncidentType>;
   selectedId?: string | null;
   onSelect?: (id: string | null) => void;
+  onPinCount?: (count: number | null) => void;
   initialViewState?: {
     longitude: number;
     latitude: number;
@@ -66,8 +74,8 @@ const POPUP_H_SINGLE = 110;
 const POPUP_H_LIST = 200;
 const EDGE = 16;
 const COORD_EPS = 1e-5;
-/** Close delay so the pointer can cross the pin→popup gap. */
 const CLOSE_MS = 280;
+const POLL_MS = 120_000;
 
 function samePoint(a: [number, number], b: [number, number]) {
   return (
@@ -75,8 +83,6 @@ function samePoint(a: [number, number], b: [number, number]) {
   );
 }
 
-/** Pick Popup anchor so the bubble stays inside the map container.
- * MapLibre: anchor "bottom" = popup ABOVE the pin; "top" = popup BELOW. */
 function pickAnchor(
   map: MaplibreMap,
   lng: number,
@@ -94,7 +100,6 @@ function pickAnchor(
   const needV = popupH + EDGE;
   const needH = popupW / 2 + EDGE;
 
-  // Prefer above the pin; flip downward when the header/top edge would clip it.
   let vertical: "top" | "bottom" = "bottom";
   if (roomAbove < needV && roomBelow >= roomAbove) {
     vertical = "top";
@@ -106,9 +111,9 @@ function pickAnchor(
 
   let horizontal: "left" | "right" | "center" = "center";
   if (roomLeft < needH && roomRight >= roomLeft) {
-    horizontal = "left"; // popup extends to the right of the pin
+    horizontal = "left";
   } else if (roomRight < needH && roomLeft >= roomRight) {
-    horizontal = "right"; // popup extends to the left of the pin
+    horizontal = "right";
   }
 
   if (vertical === "top" && horizontal === "left") return "top-left";
@@ -159,8 +164,10 @@ function featuresAtPoint(
 export function WarMap({
   geojsonUrl,
   locale,
+  enabledTypes,
   selectedId,
   onSelect,
+  onPinCount,
   initialViewState = { longitude: 25, latitude: 35, zoom: 2.2 },
   className,
   emptyLabel,
@@ -176,6 +183,7 @@ export function WarMap({
   > | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
+  const [pulseT, setPulseT] = useState(0);
 
   useEffect(() => {
     hoverRef.current = hover;
@@ -224,26 +232,93 @@ export function WarMap({
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    fetch(geojsonUrl)
-      .then((r) => r.json())
-      .then((json) => {
-        if (cancelled) return;
+  const loadGeojson = useCallback(
+    async (mode: "hard" | "soft") => {
+      try {
+        const res = await fetch(geojsonUrl, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = (await res.json()) as FeatureCollection<
+          Point,
+          MapIncidentFeatureProps
+        >;
         setError(null);
         setData(json);
-        setHover(null);
-        popupHoveredRef.current = false;
-      })
-      .catch((e) => {
-        if (cancelled) return;
+        // Soft refresh: keep camera + hover. Hard (URL/range change): clear hover only.
+        if (mode === "hard") {
+          setHover(null);
+          popupHoveredRef.current = false;
+        }
+      } catch (e) {
         setError(String(e));
-        setData(null);
-      });
+        if (mode === "hard") setData(null);
+      }
+    },
+    [geojsonUrl],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    // Defer so the effect stays a subscription to geojsonUrl, not sync setState.
+    const handle = window.setTimeout(() => {
+      if (cancelled) return;
+      void loadGeojson("hard");
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(handle);
     };
-  }, [geojsonUrl]);
+  }, [loadGeojson]);
+
+  useEffect(() => {
+    const tick = () => {
+      if (document.visibilityState === "hidden") return;
+      void loadGeojson("soft");
+    };
+    const id = window.setInterval(tick, POLL_MS);
+    const onVis = () => {
+      if (document.visibilityState === "visible") void loadGeojson("soft");
+    };
+    const onFocus = () => void loadGeojson("soft");
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [loadGeojson]);
+
+  // Restrained pulse for fresh pins (respect reduced motion).
+  useEffect(() => {
+    const reduce =
+      typeof window !== "undefined" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+    const id = window.setInterval(() => {
+      setPulseT((t) => (t + 1) % 40);
+    }, 80);
+    return () => window.clearInterval(id);
+  }, []);
+
+  const filtered = useMemo(() => {
+    if (!data) return null;
+    // undefined → all; empty Set → none (user toggled everything off)
+    if (!enabledTypes) return data;
+    if (enabledTypes.size === 0) {
+      return { type: "FeatureCollection" as const, features: [] };
+    }
+    if (enabledTypes.size >= INCIDENT_TYPES.length) return data;
+    return {
+      type: "FeatureCollection" as const,
+      features: data.features.filter((f) =>
+        enabledTypes.has(f.properties.type),
+      ),
+    };
+  }, [data, enabledTypes]);
+
+  useEffect(() => {
+    onPinCount?.(filtered ? filtered.features.length : null);
+  }, [filtered, onPinCount]);
 
   const onMapLoad = useCallback(() => {
     const map = mapRef.current?.getMap();
@@ -254,7 +329,6 @@ export function WarMap({
     map.on("resize", onView);
   }, [recomputeAnchor]);
 
-  // Keep tip + bridge sticky: listen on the whole popup root (not only inner content).
   useEffect(() => {
     if (!hover) return;
     const root = document.querySelector(".wn-hover-popup");
@@ -287,7 +361,6 @@ export function WarMap({
     (e: MapLayerMouseEvent) => {
       const feature = e.features?.[0];
       if (!feature || feature.geometry?.type !== "Point") {
-        // Crossing the gap toward the popup — delay close, don't snap shut.
         if (!popupHoveredRef.current) scheduleClose();
         setCursor("");
         return;
@@ -319,8 +392,7 @@ export function WarMap({
         return;
       }
 
-      // Unclustered pin: include any other incidents sharing this coordinate.
-      const collocated = featuresAtPoint(data, lng, lat, locale);
+      const collocated = featuresAtPoint(filtered, lng, lat, locale);
       if (collocated.length > 0) {
         applyHover(lng, lat, collocated);
         return;
@@ -334,7 +406,14 @@ export function WarMap({
       }
       applyHover(lng, lat, [single]);
     },
-    [applyHover, clearLeaveTimer, data, locale, scheduleClose, setCursor],
+    [
+      applyHover,
+      clearLeaveTimer,
+      filtered,
+      locale,
+      scheduleClose,
+      setCursor,
+    ],
   );
 
   const onMouseLeave = useCallback(() => {
@@ -356,16 +435,17 @@ export function WarMap({
   );
 
   const interactiveLayerIds = useMemo(
-    () => ["clusters", "unclustered-point", "selected-point"],
+    () => ["clusters", "unclustered-point", "selected-point", "fresh-pulse"],
     [],
   );
 
   const empty =
-    data && Array.isArray(data.features) && data.features.length === 0;
+    filtered &&
+    Array.isArray(filtered.features) &&
+    filtered.features.length === 0;
 
   const multi = (hover?.items.length ?? 0) > 1;
   const popupOffset = useMemo(() => {
-    // Push popup slightly away from the pin in the open direction.
     const a = hover?.anchor ?? "bottom";
     if (a === "top" || a === "top-left" || a === "top-right") return 14;
     if (a === "bottom" || a === "bottom-left" || a === "bottom-right") {
@@ -387,6 +467,10 @@ export function WarMap({
     return "wn-popup-bridge wn-popup-bridge--from-bottom";
   }, [hover?.anchor]);
 
+  // pulseT 0..39 → gentle opacity/radius cycle
+  const pulseOpacity = 0.15 + 0.25 * (0.5 + 0.5 * Math.sin((pulseT / 40) * Math.PI * 2));
+  const pulseRadius = 12 + 4 * (0.5 + 0.5 * Math.sin((pulseT / 40) * Math.PI * 2));
+
   return (
     <div className={className ?? "relative h-full w-full"}>
       <Map
@@ -403,11 +487,11 @@ export function WarMap({
         attributionControl={false}
       >
         <NavigationControl position="bottom-right" showCompass={false} />
-        {data && (
+        {filtered && (
           <Source
             id="incidents"
             type="geojson"
-            data={data}
+            data={filtered}
             cluster
             clusterMaxZoom={12}
             clusterRadius={48}
@@ -441,6 +525,21 @@ export function WarMap({
                 "text-size": 12,
               }}
               paint={{ "text-color": "#0c1117" }}
+            />
+            <Layer
+              id="fresh-pulse"
+              type="circle"
+              filter={[
+                "all",
+                ["!", ["has", "point_count"]],
+                ["==", ["get", "fresh"], 1],
+              ]}
+              paint={{
+                "circle-color": "#c4a35a",
+                "circle-radius": pulseRadius,
+                "circle-opacity": pulseOpacity,
+                "circle-stroke-width": 0,
+              }}
             />
             <Layer
               id="unclustered-point"
@@ -574,7 +673,7 @@ export function WarMap({
         )}
       </Map>
       {error && (
-        <div className="absolute left-4 top-4 bg-red-950/80 px-3 py-2 text-xs text-red-100">
+        <div className="absolute bottom-14 left-3 z-10 max-w-sm bg-red-950/80 px-3 py-2 text-xs text-red-100 md:left-4">
           {d.mapError}: {error}
         </div>
       )}

@@ -1,5 +1,6 @@
 import { getDb } from "@/lib/db/client";
 import { dayBoundsISO, formatDateISO, todayISO } from "@/lib/dates";
+import { FRESH_HOURS } from "@/lib/map/params";
 import type { MapIncidentFeatureProps } from "@/lib/types";
 import type { FeatureCollection, Point } from "geojson";
 
@@ -76,30 +77,39 @@ export async function getMapGeoJSON(options?: {
     args,
   });
 
+  const freshCutoff = Date.now() - FRESH_HOURS * 60 * 60 * 1000;
+
   return {
     type: "FeatureCollection",
-    features: result.rows.map((row) => ({
-      type: "Feature" as const,
-      geometry: {
-        type: "Point" as const,
-        coordinates: [Number(row.lng), Number(row.lat)],
-      },
-      properties: {
-        id: String(row.id),
-        title: String(row.title),
-        summary: String(row.summary),
-        title_pl: row.title_pl != null ? String(row.title_pl) : null,
-        title_en: row.title_en != null ? String(row.title_en) : null,
-        summary_pl: row.summary_pl != null ? String(row.summary_pl) : null,
-        summary_en: row.summary_en != null ? String(row.summary_en) : null,
-        type: row.type as MapIncidentFeatureProps["type"],
-        confidence: row.confidence as MapIncidentFeatureProps["confidence"],
-        theater_slug: String(row.theater_slug),
-        theater_name_pl: String(row.theater_name_pl),
-        theater_name_en: String(row.theater_name_en),
-        occurred_at: String(row.occurred_at),
-      },
-    })),
+    features: result.rows.map((row) => {
+      const occurredAt = String(row.occurred_at);
+      const occurredMs = Date.parse(occurredAt);
+      const fresh: 0 | 1 =
+        Number.isFinite(occurredMs) && occurredMs >= freshCutoff ? 1 : 0;
+      return {
+        type: "Feature" as const,
+        geometry: {
+          type: "Point" as const,
+          coordinates: [Number(row.lng), Number(row.lat)],
+        },
+        properties: {
+          id: String(row.id),
+          title: String(row.title),
+          summary: String(row.summary),
+          title_pl: row.title_pl != null ? String(row.title_pl) : null,
+          title_en: row.title_en != null ? String(row.title_en) : null,
+          summary_pl: row.summary_pl != null ? String(row.summary_pl) : null,
+          summary_en: row.summary_en != null ? String(row.summary_en) : null,
+          type: row.type as MapIncidentFeatureProps["type"],
+          confidence: row.confidence as MapIncidentFeatureProps["confidence"],
+          theater_slug: String(row.theater_slug),
+          theater_name_pl: String(row.theater_name_pl),
+          theater_name_en: String(row.theater_name_en),
+          occurred_at: occurredAt,
+          fresh,
+        },
+      };
+    }),
   };
 }
 

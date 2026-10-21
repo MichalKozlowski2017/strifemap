@@ -105,4 +105,6 @@ export type MapIncidentFeatureProps = {
   theater_name_pl: string;
   theater_name_en?: string;
   occurred_at: string;
+  /** 1 when occurred within the last few hours (pulse). */
+  fresh?: 0 | 1;
 };

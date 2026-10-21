@@ -30,7 +30,7 @@ export default async function TheaterPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; timeRange?: string }>;
 }) {
   const { slug } = await params;
   const sp = await searchParams;
@@ -134,7 +134,7 @@ export default async function TheaterPage({
       <MapShell
         locale={locale}
         date={date}
-        geojsonUrl={`/api/geojson?date=${date}&theater=${theater.slug}`}
+        theaterSlug={theater.slug}
         incidents={incidents}
         news={news}
         briefTitle={briefTitle}

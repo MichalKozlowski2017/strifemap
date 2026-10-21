@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ date?: string }>;
+  searchParams: Promise<{ date?: string; timeRange?: string }>;
 }) {
   const params = await searchParams;
   const locale = await getLocale();
@@ -42,13 +42,7 @@ export default async function HomePage({
   return (
     <main className="min-h-screen bg-[var(--background)]">
       <SiteHeader theaters={theaters} locale={locale} date={date} />
-      <MapShell
-        locale={locale}
-        date={date}
-        geojsonUrl={`/api/geojson?date=${date}`}
-        incidents={incidents}
-        news={news}
-      />
+      <MapShell locale={locale} date={date} incidents={incidents} news={news} />
     </main>
   );
 }
