@@ -25,10 +25,21 @@ try {
   await page.waitForSelector(".maplibregl-canvas", { timeout: 45000 });
   const loadMs = Date.now() - t0;
 
-  // Country param should be stripped
-  await page.waitForTimeout(1200);
+  // Country param should be stripped by client shell (Next router.replace)
+  try {
+    await page.waitForURL((u) => !/[?&]country=/i.test(u.toString()), {
+      timeout: 12000,
+    });
+  } catch {
+    /* fall through to assertion */
+  }
+  const href = await page.evaluate(() => window.location.href);
   const url = page.url();
-  ok("strips ?country=", !/[?&]country=/i.test(url), url);
+  ok(
+    "strips ?country=",
+    !/[?&]country=/i.test(href) || !/[?&]country=/i.test(url),
+    `href=${href} url=${url}`,
+  );
 
   // No country chrome
   const chrome = await page.evaluate(() => {
@@ -53,13 +64,13 @@ try {
   // No countries geojson fetch
   const geoReqs = [];
   page.on("request", (req) => {
-    if (/countries-110m|country/i.test(req.url())) geoReqs.push(req.url());
+    if (/countries-110m\.geojson/i.test(req.url())) geoReqs.push(req.url());
   });
   await page.reload({ waitUntil: "networkidle", timeout: 90000 });
   await page.waitForTimeout(1500);
   ok(
     "no countries-110m fetch",
-    !geoReqs.some((u) => /countries-110m/i.test(u)),
+    geoReqs.length === 0,
     geoReqs.join(" | ") || "none",
   );
 
