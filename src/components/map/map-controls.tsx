@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { typeLabel } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
@@ -24,14 +24,21 @@ const TYPE_COLORS: Record<IncidentType, string> = {
   other: "#a8a29e",
 };
 
+/** Compact overlays: pin count on map; chips+layers can sit below the map on mobile. */
 export function MapControls({
   locale,
   pinCount,
   countries,
+  /** When true, only the live badge sits on the map (chips/layers rendered via `below`). */
+  mapOnly = false,
+  /** When true, render chips + layers (for below-map strip). */
+  belowMap = false,
 }: {
   locale: Locale;
   pinCount: number | null;
   countries: CountryDayChip[];
+  mapOnly?: boolean;
+  belowMap?: boolean;
 }) {
   const d = t(locale);
   const router = useRouter();
@@ -39,12 +46,12 @@ export function MapControls({
   const searchParams = useSearchParams();
   const layers = parseLayers(searchParams.get("layers"));
   const selected = parseCountryIso(searchParams.get("country"));
+  const [layersOpen, setLayersOpen] = useState(false);
 
   const replaceParams = useCallback(
     (mutate: (p: URLSearchParams) => void) => {
       const params = new URLSearchParams(searchParams.toString());
       mutate(params);
-      // Drop legacy timeRange if present
       params.delete("timeRange");
       params.delete("hours");
       const q = params.toString();
@@ -71,66 +78,57 @@ export function MapControls({
     });
   };
 
-  return (
-    <div className="pointer-events-auto absolute left-3 top-3 z-10 flex max-w-[min(100%-1.5rem,32rem)] flex-col gap-2 md:left-4 md:top-4">
-      <div className="flex flex-wrap items-center gap-2 border border-[var(--border)] bg-[var(--surface)]/92 px-2 py-1.5 backdrop-blur-sm">
-        {pinCount != null ? (
-          <span className="text-[10px] tabular-nums tracking-wide text-[var(--muted-2)]">
-            {pinCount} · {d.mapDayLive}
-          </span>
-        ) : (
-          <span className="text-[10px] tracking-wide text-[var(--muted-2)]">
-            {d.mapDayLive}
-          </span>
-        )}
-        {selected ? (
+  const liveBadge = (
+    <div className="inline-flex items-center border border-[var(--border)] bg-[var(--surface)]/92 px-2 py-1 text-[10px] tabular-nums tracking-wide text-[var(--muted-2)] backdrop-blur-sm">
+      {pinCount != null ? `${pinCount} · ${d.mapDayLive}` : d.mapDayLive}
+    </div>
+  );
+
+  const chips = countries.length > 0 ? (
+    <div
+      className="flex flex-wrap gap-1"
+      role="group"
+      aria-label={d.countriesToday}
+    >
+      {countries.map((c) => {
+        const on = selected === c.iso;
+        return (
           <button
+            key={c.iso}
             type="button"
-            data-wn-clear-country
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              selectCountry(null);
-            }}
-            className="min-h-8 border border-[var(--border)] px-2 text-[10px] uppercase tracking-wider text-[var(--accent)] hover:bg-[var(--accent-soft)]"
+            onClick={() => selectCountry(on ? null : c.iso)}
+            className={`inline-flex min-h-9 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider transition ${
+              on
+                ? "bg-[var(--country-active-bg)] text-[var(--country-active-fg)]"
+                : "border border-[var(--border)] text-[var(--muted)] hover:text-[var(--foreground)]"
+            }`}
+            aria-pressed={on}
           >
-            {d.clearCountry}
+            <span className="font-medium tracking-normal normal-case">
+              {countryDisplayName(c.iso, locale)}
+            </span>
+            <span className="tabular-nums opacity-70">{c.incidentCount}</span>
           </button>
-        ) : null}
-      </div>
+        );
+      })}
+    </div>
+  ) : null;
 
-      {countries.length > 0 ? (
-        <div
-          className="flex flex-wrap gap-1 border border-[var(--border)] bg-[var(--surface)]/92 p-1 backdrop-blur-sm"
-          role="group"
-          aria-label={d.countriesToday}
-        >
-          {countries.map((c) => {
-            const on = selected === c.iso;
-            return (
-              <button
-                key={c.iso}
-                type="button"
-                onClick={() => selectCountry(on ? null : c.iso)}
-                className={`inline-flex min-h-9 items-center gap-1.5 px-2 text-[10px] uppercase tracking-wider transition ${
-                  on
-                    ? "bg-[var(--country-active-bg)] text-[var(--country-active-fg)]"
-                    : "text-[var(--muted)] hover:text-[var(--foreground)]"
-                }`}
-                aria-pressed={on}
-              >
-                <span className="font-medium tracking-normal normal-case">
-                  {countryDisplayName(c.iso, locale)}
-                </span>
-                <span className="tabular-nums opacity-70">{c.incidentCount}</span>
-              </button>
-            );
-          })}
-        </div>
-      ) : null}
-
+  const layersPanel = (
+    <div className="border border-[var(--border)] bg-[var(--surface)]/92 backdrop-blur-sm">
+      <button
+        type="button"
+        className="flex min-h-9 w-full items-center justify-between px-2 text-[10px] uppercase tracking-wider text-[var(--muted)] md:hidden"
+        aria-expanded={layersOpen}
+        onClick={() => setLayersOpen((v) => !v)}
+      >
+        {d.mapLayers}
+        <span aria-hidden>{layersOpen ? "−" : "+"}</span>
+      </button>
       <div
-        className="flex flex-wrap gap-1 border border-[var(--border)] bg-[var(--surface)]/92 p-1 backdrop-blur-sm"
+        className={`flex flex-wrap gap-1 p-1 ${
+          layersOpen ? "flex" : "hidden md:flex"
+        }`}
         role="group"
         aria-label={d.mapLayers}
       >
@@ -159,6 +157,45 @@ export function MapControls({
           );
         })}
       </div>
+    </div>
+  );
+
+  if (belowMap) {
+    return (
+      <div
+        data-wn-map-chrome
+        className="flex flex-col gap-2 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2 md:hidden"
+      >
+        {chips}
+        {layersPanel}
+      </div>
+    );
+  }
+
+  if (mapOnly) {
+    return (
+      <div
+        data-wn-map-chrome
+        className="pointer-events-none absolute left-3 top-3 z-10 md:left-4 md:top-4"
+      >
+        <div className="pointer-events-auto">{liveBadge}</div>
+      </div>
+    );
+  }
+
+  // Desktop: compact stack on map (no second Wyczyść — clear lives on the card)
+  return (
+    <div
+      data-wn-map-chrome
+      className="pointer-events-auto absolute left-3 top-3 z-10 hidden max-w-[min(100%-1.5rem,28rem)] flex-col gap-2 md:left-4 md:top-4 md:flex"
+    >
+      {liveBadge}
+      {chips ? (
+        <div className="border border-[var(--border)] bg-[var(--surface)]/92 p-1 backdrop-blur-sm">
+          {chips}
+        </div>
+      ) : null}
+      {layersPanel}
     </div>
   );
 }

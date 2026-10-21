@@ -24,6 +24,7 @@ import {
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { oneSentence } from "@/lib/i18n/text";
 import { formatTime } from "@/lib/dates";
+import { useTheme } from "@/components/theme/theme-provider";
 import { INCIDENT_TYPES } from "@/lib/map/params";
 import type {
   Confidence,
@@ -31,6 +32,11 @@ import type {
   MapIncidentFeatureProps,
 } from "@/lib/types";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+const MAP_STYLE_DARK =
+  "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json";
+const MAP_STYLE_LIGHT =
+  "https://basemaps.cartocdn.com/gl/positron-gl-style/style.json";
 
 if (typeof window !== "undefined") {
   maplibregl.setWorkerUrl("/maplibre-gl-worker.mjs");
@@ -187,6 +193,8 @@ export function WarMap({
   emptyLabel,
 }: Props) {
   const d = t(locale);
+  const { theme } = useTheme();
+  const mapStyle = theme === "light" ? MAP_STYLE_LIGHT : MAP_STYLE_DARK;
   const mapRef = useRef<MapRef>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverRef = useRef<HoverState | null>(null);
@@ -590,7 +598,7 @@ export function WarMap({
         ref={mapRef}
         mapLib={maplibregl}
         initialViewState={initialViewState}
-        mapStyle="https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json"
+        mapStyle={mapStyle}
         style={{ width: "100%", height: "100%" }}
         interactiveLayerIds={interactiveLayerIds}
         onLoad={onMapLoad}
