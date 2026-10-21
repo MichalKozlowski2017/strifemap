@@ -6,6 +6,7 @@ import {
   getLatestMapDate,
   listIncidentsForDate,
 } from "@/lib/geo/incidents";
+import { toDayIncidentCards } from "@/lib/geo/map-incident-cards";
 import { getTheaterBySlug, listTheaters } from "@/lib/db/queries";
 import { ensureSitrepForTheaterDay } from "@/lib/ai/sitrep";
 import { getLocale } from "@/lib/i18n/locale";
@@ -68,23 +69,10 @@ export default async function TheaterPage({
     }
   }
 
-  const incidents = rows.map((r) => ({
-    id: String(r.id),
-    type: r.type as never,
-    confidence: r.confidence as never,
-    occurred_at: String(r.occurred_at),
-    title: r.title != null ? String(r.title) : null,
-    summary: r.summary != null ? String(r.summary) : null,
-    title_pl: r.title_pl != null ? String(r.title_pl) : null,
-    title_en: r.title_en != null ? String(r.title_en) : null,
-    summary_pl: r.summary_pl != null ? String(r.summary_pl) : null,
-    summary_en: r.summary_en != null ? String(r.summary_en) : null,
+  const incidents = toDayIncidentCards(rows, news).map((card) => ({
+    ...card,
     theater_name_pl: theater.name_pl,
     theater_name_en: theater.name_en,
-    country_iso:
-      r.country_iso != null && String(r.country_iso).trim()
-        ? String(r.country_iso).trim().toUpperCase()
-        : null,
   }));
 
   const briefTitle =

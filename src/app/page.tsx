@@ -2,6 +2,7 @@ import { MapShell } from "@/components/map/map-shell";
 import { SiteHeader } from "@/components/site-header";
 import { parseDateISO, todayISO } from "@/lib/dates";
 import { getLatestMapDate, listIncidentsForDate } from "@/lib/geo/incidents";
+import { toDayIncidentCards } from "@/lib/geo/map-incident-cards";
 import { getLocale } from "@/lib/i18n/locale";
 import { listTheaters } from "@/lib/db/queries";
 import { getNewsForDay } from "@/lib/news/items";
@@ -24,24 +25,7 @@ export default async function HomePage({
     listIncidentsForDate({ date, mapEligibleOnly: true }),
     getNewsForDay({ date }),
   ]);
-  const incidents = rows.map((r) => ({
-    id: String(r.id),
-    type: r.type as never,
-    confidence: r.confidence as never,
-    occurred_at: String(r.occurred_at),
-    title: r.title != null ? String(r.title) : null,
-    summary: r.summary != null ? String(r.summary) : null,
-    title_pl: r.title_pl != null ? String(r.title_pl) : null,
-    title_en: r.title_en != null ? String(r.title_en) : null,
-    summary_pl: r.summary_pl != null ? String(r.summary_pl) : null,
-    summary_en: r.summary_en != null ? String(r.summary_en) : null,
-    theater_name_pl: r.name_pl != null ? String(r.name_pl) : undefined,
-    theater_name_en: r.name_en != null ? String(r.name_en) : undefined,
-    country_iso:
-      r.country_iso != null && String(r.country_iso).trim()
-        ? String(r.country_iso).trim().toUpperCase()
-        : null,
-  }));
+  const incidents = toDayIncidentCards(rows, news);
 
   return (
     <main className="min-h-screen bg-[var(--background)]">

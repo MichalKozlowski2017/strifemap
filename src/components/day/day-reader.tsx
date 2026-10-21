@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { MapControls } from "@/components/map/map-controls";
+import { NewsImage } from "@/components/news/news-image";
 import { NewsWall } from "@/components/news/news-wall";
 import { WarMap } from "@/components/map/war-map";
 import {
@@ -12,7 +13,10 @@ import {
 } from "@/lib/i18n/content";
 import { t, type Locale } from "@/lib/i18n/dictionary";
 import { formatTime } from "@/lib/dates";
-import type { DayNewsCard } from "@/lib/news/items";
+import {
+  articleSummaryForLocale,
+  type DayNewsCard,
+} from "@/lib/news/items";
 import type { Confidence, IncidentType } from "@/lib/types";
 
 export type DayIncidentCard = {
@@ -26,15 +30,14 @@ export type DayIncidentCard = {
   title_en?: string | null;
   summary_pl?: string | null;
   summary_en?: string | null;
+  article_summary_pl?: string | null;
+  article_summary_en?: string | null;
+  image_url?: string | null;
+  source_name?: string | null;
+  source_url?: string | null;
   theater_name_pl?: string;
   theater_name_en?: string;
   country_iso?: string | null;
-};
-
-type SourceRow = {
-  url?: string | null;
-  title?: string | null;
-  source_name?: string | null;
 };
 
 function plIncidentCount(n: number): string {
@@ -75,9 +78,6 @@ export function DayReader({
   const d = t(locale);
   const [openId, setOpenId] = useState<string | null>(null);
   const [pinCount, setPinCount] = useState<number | null>(null);
-  const [sourcesById, setSourcesById] = useState<
-    Record<string, SourceRow[] | "loading">
-  >({});
 
   const activeOpenId =
     openId && incidents.some((i) => i.id === openId) ? openId : null;
@@ -87,31 +87,6 @@ export function DayReader({
     const el = document.getElementById(`incident-${activeOpenId}`);
     el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [activeOpenId]);
-
-  useEffect(() => {
-    if (!openId) return;
-    if (Array.isArray(sourcesById[openId])) return;
-
-    let cancelled = false;
-    fetch(`/api/incidents/${openId}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((body) => {
-        if (cancelled) return;
-        setSourcesById((prev) => ({
-          ...prev,
-          [openId]: (body?.sources ?? []) as SourceRow[],
-        }));
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setSourcesById((prev) => ({ ...prev, [openId]: [] }));
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [openId]);
 
   const synthesized = useMemo(() => {
     if (briefTitle || briefBody) return null;
@@ -128,15 +103,7 @@ export function DayReader({
   }, [briefTitle, briefBody, incidents, locale]);
 
   function toggle(id: string) {
-    setOpenId((prev) => {
-      if (prev === id) return null;
-      setSourcesById((s) =>
-        Array.isArray(s[id]) || s[id] === "loading"
-          ? s
-          : { ...s, [id]: "loading" },
-      );
-      return id;
-    });
+    setOpenId((prev) => (prev === id ? null : id));
   }
 
   const incidentList =
@@ -149,8 +116,21 @@ export function DayReader({
           {incidents.map((incident) => {
             const open = activeOpenId === incident.id;
             const title = localizedTitle(incident, locale);
-            const summary = localizedSummary(incident, locale);
-            const sources = sourcesById[incident.id];
+            const teaser = localizedSummary(incident, locale);
+            const articleBody = articleSummaryForLocale(
+              {
+                article_summary_pl: incident.article_summary_pl ?? null,
+                article_summary_en: incident.article_summary_en ?? null,
+                summary_pl: incident.summary_pl ?? null,
+                summary_en: incident.summary_en ?? null,
+                summary: incident.summary ?? null,
+                body: null,
+              },
+              locale,
+            );
+            const image = incident.image_url?.trim() || "";
+            const sourceName = incident.source_name?.trim() || "";
+            const sourceUrl = incident.source_url?.trim() || "";
             return (
               <li key={incident.id}>
                 <div
@@ -175,9 +155,9 @@ export function DayReader({
                     <p className="mt-1 font-medium text-[var(--foreground)]">
                       {title}
                     </p>
-                    {!open && summary ? (
+                    {!open && teaser ? (
                       <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-[var(--muted)]">
-                        {summary}
+                        {teaser}
                       </p>
                     ) : null}
                   </button>
@@ -189,52 +169,45 @@ export function DayReader({
                   >
                     <div className="wn-accordion__inner">
                       <div className="border-t border-[var(--border)] px-4 pb-4 pt-3">
-                        {summary ? (
-                          <p className="text-sm leading-relaxed text-[var(--muted)] md:text-[15px]">
-                            {summary}
+                        {image ? (
+                          <NewsImage
+                            src={image}
+                            alt={title}
+                            aspect="wide"
+                            className="mb-4 w-full border border-[var(--border)]"
+                            required
+                          />
+                        ) : null}
+
+                        {sourceName ? (
+                          <p className="mb-2 text-[10px] uppercase tracking-widest text-[var(--muted-2)]">
+                            {sourceName}
                           </p>
                         ) : null}
-                        <div className="mt-4">
-                          <p className="text-[10px] uppercase tracking-widest text-[var(--accent)]">
-                            {d.sources}
+
+                        {articleBody ? (
+                          <p
+                            data-wn-article-body
+                            className="text-sm leading-relaxed text-[var(--muted)] md:text-[15px]"
+                          >
+                            {articleBody}
                           </p>
-                          {sources === "loading" || sources === undefined ? (
-                            <p className="mt-2 text-xs text-[var(--muted-2)]">…</p>
-                          ) : sources.length === 0 ? (
-                            <p className="mt-2 text-xs text-[var(--muted)]">
-                              {d.noSources}
-                            </p>
-                          ) : (
-                            <ul className="mt-2 space-y-2 text-sm">
-                              {sources.map((s, idx) => {
-                                const name = s.source_name?.trim() || "Source";
-                                const original = s.title?.trim();
-                                const href = s.url?.trim();
-                                const label = original
-                                  ? `${name}: ${original}`
-                                  : name;
-                                return (
-                                  <li key={`${href ?? name}-${idx}`}>
-                                    {href ? (
-                                      <a
-                                        href={href}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="inline-flex min-h-10 items-center text-[var(--accent)] underline-offset-2 hover:underline"
-                                      >
-                                        {label}
-                                      </a>
-                                    ) : (
-                                      <span className="text-[var(--muted)]">
-                                        {label}
-                                      </span>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          )}
-                        </div>
+                        ) : null}
+
+                        {sourceUrl ? (
+                          <p className="mt-4">
+                            <a
+                              href={sourceUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex min-h-11 items-center border border-[var(--border-strong)] px-4 text-sm text-[var(--accent)] hover:bg-[var(--accent-soft)]"
+                            >
+                              {d.newsReadSource}
+                              {sourceName ? ` (${sourceName})` : ""}
+                            </a>
+                          </p>
+                        ) : null}
+
                         <button
                           type="button"
                           onClick={() => setOpenId(null)}

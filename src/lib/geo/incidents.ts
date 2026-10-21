@@ -141,7 +141,28 @@ export async function listIncidentsForDate(options: {
 
   const result = await db.execute({
     sql: `
-      SELECT i.*, t.slug AS theater_slug, t.name_pl, t.name_en
+      SELECT i.*, t.slug AS theater_slug, t.name_pl, t.name_en,
+             COALESCE(i.image_url, (
+               SELECT r.image_url FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               WHERE isrc.incident_id = i.id AND r.image_url IS NOT NULL
+                 AND trim(r.image_url) != ''
+               LIMIT 1
+             )) AS resolved_image_url,
+             (
+               SELECT s.name FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC LIMIT 1
+             ) AS source_name,
+             (
+               SELECT r.url FROM incident_sources isrc
+               JOIN raw_events r ON r.id = isrc.raw_event_id
+               JOIN sources s ON s.id = r.source_id
+               WHERE isrc.incident_id = i.id
+               ORDER BY s.trust_weight DESC LIMIT 1
+             ) AS source_url
       FROM incidents i
       JOIN theaters t ON t.id = i.theater_id
       WHERE ${clauses.join(" AND ")}
