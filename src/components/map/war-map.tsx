@@ -497,6 +497,11 @@ export function WarMap({
 
   const onClick = useCallback(
     (e: MapLayerMouseEvent) => {
+      // Ignore clicks that started on overlay chrome (controls / card).
+      const orig = e.originalEvent as MouseEvent | undefined;
+      const target = orig?.target as HTMLElement | null | undefined;
+      if (target?.closest?.("[data-wn-map-chrome]")) return;
+
       const features = e.features ?? [];
       const pin = features.find(
         (f) =>
