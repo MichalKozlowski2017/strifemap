@@ -80,7 +80,8 @@ const POPUP_H_SINGLE = 110;
 const POPUP_H_LIST = 200;
 const EDGE = 16;
 const COORD_EPS = 1e-5;
-const CLOSE_MS = 280;
+/** Grace to cross from pin/cluster onto the popup list. */
+const CLOSE_MS = 320;
 const POLL_MS = 120_000;
 
 function samePoint(a: [number, number], b: [number, number]) {
@@ -185,6 +186,9 @@ export function WarMap({
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hoverRef = useRef<HoverState | null>(null);
   const popupHoveredRef = useRef(false);
+  const pinHoveredRef = useRef(false);
+  /** Bumped on every close / leave so stale cluster leaf fetches cannot reopen. */
+  const hoverEpochRef = useRef(0);
   const [data, setData] = useState<FeatureCollection<
     Point,
     MapIncidentFeatureProps
@@ -209,14 +213,24 @@ export function WarMap({
     if (map) map.getCanvas().style.cursor = cursor;
   }, []);
 
+  const closeHover = useCallback(() => {
+    clearLeaveTimer();
+    hoverEpochRef.current += 1;
+    popupHoveredRef.current = false;
+    pinHoveredRef.current = false;
+    setHover(null);
+    setCursor("");
+  }, [clearLeaveTimer, setCursor]);
+
   const scheduleClose = useCallback(() => {
     clearLeaveTimer();
+    const epoch = hoverEpochRef.current;
     leaveTimer.current = setTimeout(() => {
-      if (popupHoveredRef.current) return;
-      setHover(null);
-      setCursor("");
+      if (epoch !== hoverEpochRef.current) return;
+      if (popupHoveredRef.current || pinHoveredRef.current) return;
+      closeHover();
     }, CLOSE_MS);
-  }, [clearLeaveTimer, setCursor]);
+  }, [clearLeaveTimer, closeHover]);
 
   const onPopupEnter = useCallback(() => {
     popupHoveredRef.current = true;
@@ -251,17 +265,16 @@ export function WarMap({
         >;
         setError(null);
         setData(json);
-        // Soft refresh: keep camera + hover. Hard (URL/range change): clear hover only.
+        // Soft refresh: keep camera + hover. Hard (URL/range change): clear hover.
         if (mode === "hard") {
-          setHover(null);
-          popupHoveredRef.current = false;
+          closeHover();
         }
       } catch (e) {
         setError(String(e));
         if (mode === "hard") setData(null);
       }
     },
-    [geojsonUrl],
+    [closeHover, geojsonUrl],
   );
 
   useEffect(() => {
@@ -337,82 +350,91 @@ export function WarMap({
     map.on("resize", onView);
   }, [recomputeAnchor]);
 
-  useEffect(() => {
-    if (!hover) return;
-    const root = document.querySelector(".wn-hover-popup");
-    if (!root) return;
-    const enter = () => onPopupEnter();
-    const leave = () => onPopupLeave();
-    root.addEventListener("mouseenter", enter);
-    root.addEventListener("mouseleave", leave);
-    return () => {
-      root.removeEventListener("mouseenter", enter);
-      root.removeEventListener("mouseleave", leave);
-    };
-  }, [hover, onPopupEnter, onPopupLeave]);
-
   const applyHover = useCallback(
-    (lng: number, lat: number, items: HoverItem[]) => {
+    (lng: number, lat: number, items: HoverItem[], epoch: number) => {
+      if (epoch !== hoverEpochRef.current) return;
       const map = mapRef.current?.getMap();
       if (!map || items.length === 0) {
-        setHover(null);
+        closeHover();
         return;
       }
       const popupH = items.length > 1 ? POPUP_H_LIST : POPUP_H_SINGLE;
       const anchor = pickAnchor(map, lng, lat, POPUP_W, popupH);
+      const prev = hoverRef.current;
+      if (
+        prev &&
+        prev.items.length === items.length &&
+        prev.items.every((it, i) => it.id === items[i]?.id) &&
+        Math.abs(prev.lng - lng) < COORD_EPS &&
+        Math.abs(prev.lat - lat) < COORD_EPS &&
+        prev.anchor === anchor
+      ) {
+        return;
+      }
       setHover({ lng, lat, anchor, items });
     },
-    [],
+    [closeHover],
   );
 
   const onMouseMove = useCallback(
     (e: MapLayerMouseEvent) => {
+      if (popupHoveredRef.current) return;
+
       const feature = e.features?.[0];
       if (!feature || feature.geometry?.type !== "Point") {
-        if (!popupHoveredRef.current) scheduleClose();
+        pinHoveredRef.current = false;
+        scheduleClose();
         setCursor("");
         return;
       }
 
+      pinHoveredRef.current = true;
       clearLeaveTimer();
       setCursor("pointer");
       const [lng, lat] = feature.geometry.coordinates as [number, number];
       const props = feature.properties as Record<string, unknown> | null;
+      const epoch = hoverEpochRef.current;
 
       if (props?.cluster) {
         const map = mapRef.current?.getMap();
         const source = map?.getSource("incidents") as GeoJSONSource | undefined;
         const clusterId = Number(props.cluster_id);
         if (!source || Number.isNaN(clusterId)) {
+          pinHoveredRef.current = false;
           scheduleClose();
           return;
         }
         void source
           .getClusterLeaves(clusterId, 25, 0)
           .then((leaves) => {
+            if (epoch !== hoverEpochRef.current) return;
             if (popupHoveredRef.current) return;
+            if (!pinHoveredRef.current) return;
             const items = (leaves as Feature<Point, MapIncidentFeatureProps>[])
               .map((leaf) => toHoverItem(leaf.properties, locale))
               .filter(Boolean) as HoverItem[];
-            applyHover(lng, lat, items);
+            applyHover(lng, lat, items, epoch);
           })
-          .catch(() => scheduleClose());
+          .catch(() => {
+            if (epoch === hoverEpochRef.current) scheduleClose();
+          });
         return;
       }
 
       const collocated = featuresAtPoint(filtered, lng, lat, locale);
       if (collocated.length > 0) {
-        applyHover(lng, lat, collocated);
+        applyHover(lng, lat, collocated, epoch);
         return;
       }
 
       const pinProps = props as unknown as MapIncidentFeatureProps;
       const single = toHoverItem(pinProps, locale);
       if (!single) {
+        pinHoveredRef.current = false;
         scheduleClose();
         return;
       }
-      applyHover(lng, lat, [single]);
+      applyHover(lng, lat, [single], epoch);
     },
     [
       applyHover,
@@ -425,6 +447,7 @@ export function WarMap({
   );
 
   const onMouseLeave = useCallback(() => {
+    pinHoveredRef.current = false;
     if (!popupHoveredRef.current) scheduleClose();
   }, [scheduleClose]);
 
@@ -433,6 +456,8 @@ export function WarMap({
       const orig = e.originalEvent as MouseEvent | undefined;
       const target = orig?.target as HTMLElement | null | undefined;
       if (target?.closest?.("[data-wn-map-chrome]")) return;
+      // Tap/click on the popup itself (list item) is handled there.
+      if (target?.closest?.(".wn-hover-popup")) return;
 
       const features = e.features ?? [];
       const pin = features.find(
@@ -444,10 +469,40 @@ export function WarMap({
         const id = String(
           (pin.properties as MapIncidentFeatureProps).id ?? "",
         );
-        if (id) onSelect?.(id);
+        if (id) {
+          closeHover();
+          onSelect?.(id);
+          return;
+        }
       }
+
+      // Touch/click on a cluster: open (or keep) the list — do not dismiss.
+      const cluster = features.find((f) => f.layer?.id === "clusters");
+      if (cluster?.geometry?.type === "Point") {
+        const [lng, lat] = cluster.geometry.coordinates as [number, number];
+        const props = cluster.properties as Record<string, unknown> | null;
+        const map = mapRef.current?.getMap();
+        const source = map?.getSource("incidents") as GeoJSONSource | undefined;
+        const clusterId = Number(props?.cluster_id);
+        if (source && !Number.isNaN(clusterId)) {
+          clearLeaveTimer();
+          pinHoveredRef.current = true;
+          const epoch = hoverEpochRef.current;
+          void source.getClusterLeaves(clusterId, 25, 0).then((leaves) => {
+            if (epoch !== hoverEpochRef.current) return;
+            const items = (leaves as Feature<Point, MapIncidentFeatureProps>[])
+              .map((leaf) => toHoverItem(leaf.properties, locale))
+              .filter(Boolean) as HoverItem[];
+            applyHover(lng, lat, items, epoch);
+          });
+        }
+        return;
+      }
+
+      // Empty map / outside popup → dismiss (mouse + touch).
+      closeHover();
     },
-    [onSelect],
+    [applyHover, clearLeaveTimer, closeHover, locale, onSelect],
   );
 
   const interactiveLayerIds = useMemo(
@@ -625,7 +680,8 @@ export function WarMap({
           >
             <div
               className={`${bridgeClass} space-y-1 p-0.5 text-[#1a1a1a]`}
-              onMouseEnter={onPopupEnter}
+              onPointerEnter={onPopupEnter}
+              onPointerLeave={onPopupLeave}
             >
               <p className="text-[10px] uppercase tracking-widest text-stone-500">
                 {formatTime(hover.items[0].occurred_at, locale)} ·{" "}
@@ -656,7 +712,8 @@ export function WarMap({
           >
             <div
               className={`${bridgeClass} p-0.5 text-[#1a1a1a]`}
-              onMouseEnter={onPopupEnter}
+              onPointerEnter={onPopupEnter}
+              onPointerLeave={onPopupLeave}
             >
               <p className="mb-1.5 text-[10px] uppercase tracking-widest text-stone-500">
                 {d.clusterIncidents}
@@ -669,9 +726,7 @@ export function WarMap({
                       className="w-full rounded px-1.5 py-1.5 text-left leading-snug hover:bg-amber-100"
                       onClick={(ev) => {
                         ev.stopPropagation();
-                        clearLeaveTimer();
-                        popupHoveredRef.current = false;
-                        setHover(null);
+                        closeHover();
                         onSelect?.(item.id);
                       }}
                     >
